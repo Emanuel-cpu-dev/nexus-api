@@ -2,12 +2,15 @@
 
 Red social de escritorio (Electron + React) con chat, llamadas WebRTC, pantalla compartida, salas de video sincronizado y feed tipo Humand.
 
-## Estado de este equipo
+## Estado
 
+- Backend desplegado y funcionando en **`https://nexus-api-cdxi.onrender.com`** (Render, plan Free).
+- Repo: `https://github.com/Emanuel-cpu-dev/nexus-api`.
+- Cliente compilado en `C:\Nexus\dist-electron\Nexus-Portable.exe` (72 MB), apuntando a la URL de Render.
 - Node portable 22.14.0 en `C:\Nexus\.node22` (el Node del sistema es 20.19.5 y **no sirve** para `node:sqlite`).
-- Backend funcionando en `http://localhost:3000`.
-- Cliente compilado en `C:\Nexus\dist-electron\Nexus-Portable.exe`.
-- URL fijada en el `.exe`: `http://localhost:3000` (editable en la pantalla de login y en Configuración).
+- Comparte el `.exe`: tus amigos lo abren, crean su cuenta y te pasan su código. No necesitan servidor propio.
+
+> Verificado contra Render: registro, amistad, Socket.IO sobre HTTPS/WSS y DM entregado una vez a cada lado.
 
 ## Arrancar el servidor local
 
@@ -24,17 +27,17 @@ Comprobación:
 Invoke-RestMethod http://localhost:3000/api/health
 ```
 
-## Desplegar en Render (nube)
+## Render
 
-Lee `RENDER.md`. Es obligatorio para usar la app con amigos desde otros equipos: `localhost` solo funciona en esta PC.
+El despliegue ya está hecho. `RENDER.md` documenta cómo se creó y cómo cambiar la URL si algún día Render te asigna otra.
 
-Cuando tengas la URL (por ejemplo `https://nexus-api.onrender.com`), ejecuta:
+Para recompilar el `.exe` con una URL distinta:
 
 ```powershell
-.\REBUILD-CON-URL.ps1 -Url 'https://nexus-api.onrender.com'
+.\REBUILD-CON-URL.ps1 -Url 'https://TU-URL.onrender.com'
 ```
 
-Eso actualiza `render.yaml`, `.env` y vuelve a generar el `.exe` apuntando a esa URL. También puedes dejar la URL editable en el login.
+También puedes cambiar la URL sin recompilar: en la pantalla de login o en Configuración.
 
 ## Estructura
 

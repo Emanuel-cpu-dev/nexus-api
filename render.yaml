@@ -9,6 +9,6 @@ services:
       - key: NODE_VERSION
         value: 22.14.0
       - key: PUBLIC_URL
-        value: https://REEMPLAZA-CON-TU-URL.onrender.com
+        value: https://nexus-api-cdxi.onrender.com
       - key: DATA_DIR
         value: ./data
