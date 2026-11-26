@@ -10,7 +10,7 @@
 | URL pública | **`https://nexus-api-cdxi.onrender.com`** |
 | Health check | `https://nexus-api-cdxi.onrender.com/api/health` → `{"ok":true,...}` |
 | Start Command | `npm start` |
-| Build Command | `npm install` |
+| Build Command | `npm install && npm run build:web` |
 | Branch | `main` |
 
 Variables de entorno configuradas en Render:
@@ -24,6 +24,19 @@ Variables de entorno configuradas en Render:
 ## Verificación funcional realizada
 
 Contra la URL pública se probaron: registro de dos usuarios, solicitud y aceptación de amistad, conexión Socket.IO por HTTPS/WSS y mensaje directo entregado una sola vez a cada destinatario. Todo pasó.
+
+## Actualizaciones sin reenviar el `.exe`
+
+La interfaz React ya no vive dentro del `.exe`: Render la compila (`npm run build:web`) y la sirve en `https://nexus-api-cdxi.onrender.com/`. El `.exe` es solo una ventana Electron que abre esa URL y, si no hay conexión, usa una copia local de respaldo incluida en el archivo.
+
+Consecuencia: para publicar una mejora o corrección alcanza con:
+
+```powershell
+cd C:\Nexus
+git add .; git commit -m 'Descripcion del cambio'; git push
+```
+
+Render hace el deploy automático y todos ven la versión nueva al reiniciar Nexus. No hay que enviar otro `.exe`. Solo haría falta recompilarlo si cambiara la URL pública o si se modificara `electron/main.cjs`.
 
 ## Si algún día cambia la URL
 

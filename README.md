@@ -6,9 +6,10 @@ Red social de escritorio (Electron + React) con chat, llamadas WebRTC, pantalla 
 
 - Backend desplegado y funcionando en **`https://nexus-api-cdxi.onrender.com`** (Render, plan Free).
 - Repo: `https://github.com/Emanuel-cpu-dev/nexus-api`.
-- Cliente compilado en `C:\Nexus\dist-electron\Nexus-Portable.exe` (72 MB), apuntando a la URL de Render.
+- Cliente compilado en `C:\Nexus\dist-electron\Nexus-Portable.exe` (72 MB). Es una ventana Electron que abre la interfaz servida por Render.
+- La interfaz se actualiza sola: alcanza con hacer `git push`. **No hay que volver a enviar el `.exe`** para cada cambio.
 - Node portable 22.14.0 en `C:\Nexus\.node22` (el Node del sistema es 20.19.5 y **no sirve** para `node:sqlite`).
-- Comparte el `.exe`: tus amigos lo abren, crean su cuenta y te pasan su código. No necesitan servidor propio.
+- Comparte el `.exe` una sola vez: tus amigos lo abren, crean su cuenta y te pasan su código. No necesitan servidor propio.
 
 > Verificado contra Render: registro, amistad, Socket.IO sobre HTTPS/WSS y DM entregado una vez a cada lado.
 
@@ -37,7 +38,16 @@ Para recompilar el `.exe` con una URL distinta:
 .\REBUILD-CON-URL.ps1 -Url 'https://TU-URL.onrender.com'
 ```
 
-También puedes cambiar la URL sin recompilar: en la pantalla de login o en Configuración.
+La URL del servidor se detecta sola cuando la interfaz se abre desde Render, así que no hay que configurarla a mano. El campo de Configuración sigue sirviendo para el modo local/offline.
+
+## Cómo publicar cambios (sin reenviar el `.exe`)
+
+```powershell
+cd C:\Nexus
+git add .; git commit -m 'Descripcion del cambio'; git push
+```
+
+Render reconstruye la interfaz automáticamente (`npm install && npm run build:web`) y todos la ven al reiniciar Nexus. Solo se recompila el `.exe` si cambia la URL pública o si se toca `electron/main.cjs`.
 
 ## Estructura
 

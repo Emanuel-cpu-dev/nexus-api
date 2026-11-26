@@ -1,6 +1,10 @@
 const { app, BrowserWindow, ipcMain, shell, desktopCapturer } = require('electron');
 const path = require('path');
 
+// La interfaz se sirve desde Render: así cualquier cambio llega sin reenviar el .exe.
+// REBUILD-CON-URL.ps1 actualiza esta constante si la URL pública cambiara.
+const REMOTE_UI_URL = 'https://nexus-api-cdxi.onrender.com/';
+
 let mainWindow = null;
 
 function createWindow() {
@@ -20,7 +24,10 @@ function createWindow() {
   });
 
   if (app.isPackaged) {
-    mainWindow.loadFile(path.join(__dirname, '..', 'app', 'dist', 'index.html'));
+    const localIndex = path.join(__dirname, '..', 'app', 'dist', 'index.html');
+    mainWindow
+      .loadURL(process.env.NEXUS_UI_URL || REMOTE_UI_URL)
+      .catch(() => mainWindow.loadFile(localIndex));
   } else {
     mainWindow.loadURL(process.env.NEXUS_DEV_URL || 'http://localhost:5173');
   }

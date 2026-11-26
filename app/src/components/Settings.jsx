@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getServerUrl, setServerUrl } from '../config.js';
+import { getServerUrl, setServerUrl, isServerUrlAutomatic } from '../config.js';
 
 export default function Settings({ onLogout }) {
   const [url, setUrl] = useState(getServerUrl());
@@ -33,11 +33,12 @@ export default function Settings({ onLogout }) {
       <form className="card stack-form" onSubmit={save}>
         <label>
           URL del servidor
-          <input value={url} onChange={(e) => setUrl(e.target.value)} spellCheck={false} />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} readOnly={isServerUrlAutomatic()} spellCheck={false} />
         </label>
         <small className="hint">
-          Usa la URL de Render (https://…onrender.com) para conectarte con tus amigos desde cualquier PC.
-          Solo {`http://localhost:3000`} funciona en esta máquina.
+          {isServerUrlAutomatic()
+            ? 'La interfaz se actualiza sola desde Render y se conecta automáticamente a ese servidor. No hace falta cambiar esta URL.'
+            : 'Usa la URL de Render (https://…onrender.com) para conectarte con tus amigos desde cualquier PC. Solo localhost funciona en esta máquina.'}
         </small>
 
         <label>

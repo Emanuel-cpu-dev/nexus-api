@@ -25,6 +25,13 @@ if (Test-Path $envFile) {
   Set-Content -Path $envFile -Value $envText -NoNewline
 }
 
+$mainFile = 'C:\Nexus\electron\main.cjs'
+if (Test-Path $mainFile) {
+  $mainText = Get-Content $mainFile -Raw
+  $mainText = $mainText -replace "const REMOTE_UI_URL = '[^']*';", "const REMOTE_UI_URL = '$cleanUrl/';"
+  Set-Content -Path $mainFile -Value $mainText -NoNewline
+}
+
 Write-Host "Compilando Nexus apuntando a $cleanUrl ..." -ForegroundColor Cyan
 $env:VITE_SERVER_URL = $cleanUrl
 npm install
