@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, uploadFile } from '../api.js';
 import { fileUrl } from '../config.js';
 import { getSocket } from '../socket.js';
-import { cx, formatSize, initials, isImage, isVideo, timeAgo } from '../utils.js';
+import { cx, formatSize, isImage, isVideo, timeAgo } from '../utils.js';
+import Avatar from './Avatar.jsx';
 
 function dmRoomFor(a, b) {
   return `dm:${[a, b].sort().join(':')}`;
@@ -14,9 +15,7 @@ function MessageBubble({ message, me }) {
   return (
     <div className={cx('bubble-row', mine && 'mine')}>
       {!mine && (
-        <span className="avatar xs" style={{ background: message.author?.avatarColor }}>
-          {initials(message.author?.displayName)}
-        </span>
+        <Avatar user={message.author} size="xs" />
       )}
       <div className="bubble">
         {!mine && <div className="tiny author-line">{message.author?.displayName}</div>}

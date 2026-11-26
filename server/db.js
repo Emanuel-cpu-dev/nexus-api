@@ -18,6 +18,7 @@ db.exec(`
     display_name TEXT NOT NULL,
     bio TEXT DEFAULT '',
     avatar_color TEXT DEFAULT '#5865f2',
+    avatar_url TEXT DEFAULT '',
     code TEXT NOT NULL UNIQUE,
     created_at TEXT NOT NULL
   );
@@ -101,6 +102,11 @@ db.exec(`
   );
 `);
 
+// Migración simple para bases creadas antes de la foto de perfil.
+if (!db.prepare('PRAGMA table_info(users)').all().some((column) => column.name === 'avatar_url')) {
+  db.exec("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''");
+}
+
 export function uid() {
   return randomBytes(12).toString('hex');
 }
@@ -147,6 +153,7 @@ export function publicUser(row) {
     displayName: row.display_name,
     bio: row.bio || '',
     avatarColor: row.avatar_color || '#5865f2',
+    avatarUrl: row.avatar_url || '',
     code: row.code,
     createdAt: row.created_at
   };
@@ -242,8 +249,8 @@ export function messageShape(row) {
 export function messagesFor(room, limit = 150) {
   const rows = db.prepare(`
     SELECT * FROM (
-      SELECT * FROM messages WHERE room = ? ORDER BY created_at DESC, rowid DESC LIMIT ?
-    ) ORDER BY created_at ASC, rowid ASC
+      SELECT rowid AS rid, * FROM messages WHERE room = ? ORDER BY created_at DESC, rowid DESC LIMIT ?
+    ) ORDER BY rid ASC
   `).all(room, limit);
   return rows.map(messageShape);
 }
@@ -301,6 +308,11 @@ export function postsFor(viewerId, communityId = null) {
   const rows = communityId
     ? db.prepare('SELECT * FROM posts WHERE community_id = ? ORDER BY created_at DESC').all(communityId)
     : db.prepare('SELECT * FROM posts WHERE community_id IS NULL ORDER BY created_at DESC').all();
+  return rows.map((row) => postShape(row, viewerId));
+}
+
+export function postsByUser(userId, viewerId) {
+  const rows = db.prepare('SELECT * FROM posts WHERE user_id = ? ORDER BY created_at DESC').all(userId);
   return rows.map((row) => postShape(row, viewerId));
 }
 

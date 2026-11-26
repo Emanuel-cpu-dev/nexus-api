@@ -24,6 +24,7 @@ import {
   messagesFor,
   saveMessage,
   postsFor,
+  postsByUser,
   postShape,
   commentsFor,
   communitiesFor,
@@ -156,6 +157,14 @@ export function createRoutes(io) {
       fields.push('avatar_color = ?');
       values.push(color);
     }
+    if (req.body?.avatarUrl !== undefined) {
+      const value = String(req.body.avatarUrl || '').trim();
+      if (value.length > 500 || (value && !/^(\/uploads\/[^\s]+|https?:\/\/[^\s]+)$/.test(value))) {
+        return res.status(400).json({ error: 'URL de foto inválida.' });
+      }
+      fields.push('avatar_url = ?');
+      values.push(value);
+    }
     if (fields.length) {
       values.push(id);
       db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
@@ -166,7 +175,10 @@ export function createRoutes(io) {
   router.get('/users/:id', authRequired, (req, res) => {
     const user = getUserById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
-    return res.json({ user: { ...publicUser(user), online: isOnline(user.id) } });
+    return res.json({
+      user: { ...publicUser(user), online: isOnline(user.id) },
+      posts: postsByUser(user.id, req.user.id)
+    });
   });
 
   router.post('/friends/request', authRequired, (req, res) => {

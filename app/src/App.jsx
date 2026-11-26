@@ -11,7 +11,8 @@ import Profile from './components/Profile.jsx';
 import Settings from './components/Settings.jsx';
 import CallOverlay from './components/CallOverlay.jsx';
 import Cine from './components/Cine.jsx';
-import { initials } from './utils.js';
+import Avatar from './components/Avatar.jsx';
+import UserProfile from './components/UserProfile.jsx';
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('nexus_token'));
@@ -24,6 +25,7 @@ export default function App() {
   const [view, setView] = useState('home');
   const [activeChat, setActiveChat] = useState(null);
   const [cineTarget, setCineTarget] = useState(null);
+  const [profileUser, setProfileUser] = useState(null);
   const [communityOpen, setCommunityOpen] = useState(null);
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -45,6 +47,7 @@ export default function App() {
     setOutgoing([]);
     setActiveChat(null);
     setCineTarget(null);
+    setProfileUser(null);
     setCommunityOpen(null);
     setCall(null);
     setView('home');
@@ -199,6 +202,17 @@ export default function App() {
     setView('communities');
   }, []);
 
+  const openProfile = useCallback(async (friend) => {
+    if (!friend?.id) return;
+    try {
+      const data = await api(`/users/${friend.id}`);
+      setProfileUser(data.user);
+      setView('userProfile');
+    } catch (error) {
+      toast(error.message);
+    }
+  }, [toast]);
+
   const openCineForFriend = useCallback(async (friend) => {
     await openDm(friend, 'cine');
     setCineTarget({ type: 'dm', id: friend.id, name: friend.displayName });
@@ -300,6 +314,7 @@ export default function App() {
             onDm={openDm}
             onCall={startCall}
             onCine={openCineForFriend}
+            onProfile={openProfile}
           />
         )}
 
@@ -321,7 +336,7 @@ export default function App() {
                   className={`dm-item wide ${activeChat?.userId === friend.id ? 'active' : ''}`}
                   onClick={() => openDm(friend)}
                 >
-                  <span className="avatar xs" style={{ background: friend.avatarColor }}>{initials(friend.displayName)}</span>
+                  <Avatar user={friend} size="xs" />
                   <span className="dm-name grow">{friend.displayName}</span>
                   <span className={`presence-dot ${friend.online ? 'online' : ''}`} />
                 </button>
@@ -376,6 +391,14 @@ export default function App() {
               setMe(user);
               setFriends((current) => current.map((friend) => (friend.id === user.id ? { ...friend, ...user } : friend)));
             }}
+          />
+        )}
+
+        {view === 'userProfile' && profileUser && (
+          <UserProfile
+            user={profileUser}
+            onBack={() => changeView('friends')}
+            onDm={() => openDm(profileUser)}
           />
         )}
 

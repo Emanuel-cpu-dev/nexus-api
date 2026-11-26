@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, uploadFile } from '../api.js';
 import { fileUrl } from '../config.js';
-import { cx, formatSize, initials, isImage, isVideo, timeAgo } from '../utils.js';
+import { cx, formatSize, isImage, isVideo, timeAgo } from '../utils.js';
+import Avatar from './Avatar.jsx';
 
 function Attachment({ file }) {
   if (!file) return null;
@@ -131,9 +132,7 @@ export default function Feed({ communityId = null, compact = false }) {
         {posts.map((post) => (
           <article className="card post" key={post.id}>
             <header className="post-head">
-              <span className="avatar" style={{ background: post.author?.avatarColor }}>
-                {initials(post.author?.displayName)}
-              </span>
+              <Avatar user={post.author} />
               <div className="grow">
                 <strong>{post.author?.displayName}</strong>
                 <div className="tiny muted">@{post.author?.username} · {timeAgo(post.createdAt)}</div>
@@ -161,9 +160,7 @@ export default function Feed({ communityId = null, compact = false }) {
               <div className="comments">
                 {(post.comments || []).map((comment) => (
                   <div className="comment" key={comment.id}>
-                    <span className="avatar xs" style={{ background: comment.author?.avatarColor }}>
-                      {initials(comment.author?.displayName)}
-                    </span>
+                    <Avatar user={comment.author} size="xs" />
                     <div>
                       <strong className="tiny">{comment.author?.displayName}</strong>
                       <span className="comment-text">{comment.text}</span>

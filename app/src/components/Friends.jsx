@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { initials, timeAgo } from '../utils.js';
+import { timeAgo } from '../utils.js';
+import Avatar from './Avatar.jsx';
 
-export default function Friends({ me, friends, incoming, outgoing, onDm, onCall, onCine, refresh }) {
+export default function Friends({ me, friends, incoming, outgoing, onDm, onCall, onCine, onProfile, refresh }) {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -78,9 +79,7 @@ export default function Friends({ me, friends, incoming, outgoing, onDm, onCall,
           <h3>Solicitudes recibidas</h3>
           {incoming.map((request) => (
             <div className="row" key={request.id}>
-              <span className="avatar" style={{ background: request.from?.avatarColor }}>
-                {initials(request.from?.displayName)}
-              </span>
+              <Avatar user={request.from} />
               <div className="grow">
                 <strong>{request.from?.displayName}</strong>
                 <div className="tiny muted">@{request.from?.username} · {timeAgo(request.createdAt)}</div>
@@ -97,9 +96,7 @@ export default function Friends({ me, friends, incoming, outgoing, onDm, onCall,
           <h3>Solicitudes enviadas</h3>
           {outgoing.map((request) => (
             <div className="row" key={request.id}>
-              <span className="avatar" style={{ background: request.to?.avatarColor }}>
-                {initials(request.to?.displayName)}
-              </span>
+              <Avatar user={request.to} />
               <span className="grow">{request.to?.displayName}</span>
               <span className="tiny muted">Pendiente</span>
             </div>
@@ -114,9 +111,7 @@ export default function Friends({ me, friends, incoming, outgoing, onDm, onCall,
           {friends.map((friend) => (
             <div className="friend-card" key={friend.id}>
               <div className="friend-head">
-                <span className="avatar" style={{ background: friend.avatarColor }}>
-                  {initials(friend.displayName)}
-                </span>
+                <Avatar user={friend} />
                 <div className="grow">
                   <strong>{friend.displayName}</strong>
                   <div className="tiny muted">
@@ -126,6 +121,7 @@ export default function Friends({ me, friends, incoming, outgoing, onDm, onCall,
                 </div>
               </div>
               <div className="friend-actions">
+                <button type="button" className="ghost small" onClick={() => onProfile?.(friend)}>👤 Perfil</button>
                 <button type="button" className="ghost small" onClick={() => onDm(friend)}>💬 Mensaje</button>
                 <button type="button" className="ghost small" onClick={() => onCall(friend)}>📹 Llamar</button>
                 <button type="button" className="ghost small" onClick={() => onCine(friend)}>📺 Ver juntos</button>

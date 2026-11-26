@@ -1,4 +1,4 @@
-import { initials } from '../utils.js';
+import Avatar from './Avatar.jsx';
 
 const NAV = [
   { id: 'home', icon: '🏠', label: 'Inicio' },
@@ -46,9 +46,7 @@ export default function Sidebar({ me, view, changeView, friends, activeChat, onD
               className={`dm-item ${activeChat?.userId === friend.id && view === 'messages' ? 'active' : ''}`}
               onClick={() => onDm(friend)}
             >
-              <span className="avatar xs" style={{ background: friend.avatarColor }}>
-                {initials(friend.displayName)}
-              </span>
+              <Avatar user={friend} size="xs" />
               <span className="dm-name">{friend.displayName}</span>
               <span className={`presence-dot ${friend.online ? 'online' : ''}`} />
             </button>
@@ -57,9 +55,7 @@ export default function Sidebar({ me, view, changeView, friends, activeChat, onD
       </div>
 
       <div className="sidebar-foot">
-        <div className="avatar" style={{ background: me?.avatarColor }}>
-          {initials(me?.displayName)}
-        </div>
+        <Avatar user={me} />
         <div className="grow">
           <strong className="block">{me?.displayName}</strong>
           <span className="tiny muted">@{me?.username}</span>
