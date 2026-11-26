@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nexus-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: PUBLIC_URL
+        value: https://REEMPLAZA-CON-TU-URL.onrender.com
+      - key: DATA_DIR
+        value: ./data

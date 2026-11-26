@@ -1,0 +1,8 @@
+node_modules/
+.node22/
+data/
+uploads/
+dist-electron/
+app/dist/
+.env
+*.log
