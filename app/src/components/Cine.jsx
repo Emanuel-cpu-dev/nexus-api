@@ -111,8 +111,12 @@ export default function Cine({ target, chat, me, friends, onCall, onCine }) {
 
   function loadUrl(event) {
     event.preventDefault();
-    const value = input.trim();
+    let value = input.trim();
     if (!value) return;
+    if (!/^https?:\/\//i.test(value) && /(youtube\.com|youtu\.be)/i.test(value)) {
+      value = `https://${value}`;
+      setInput(value);
+    }
     setError('');
     urlRef.current = value;
     setUrl(value);
