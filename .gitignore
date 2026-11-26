@@ -1,5 +1,6 @@
 node_modules/
 .node22/
+.tools/
 data/
 uploads/
 dist-electron/
