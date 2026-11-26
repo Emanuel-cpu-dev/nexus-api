@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { getServerUrl, setServerUrl } from '../config.js';
+import { getServerUrl, setServerUrl, isServerUrlAutomatic } from '../config.js';
 
 export default function Auth({ onAuthenticated }) {
   const [mode, setMode] = useState('login');
   const [serverUrl, setUrl] = useState(getServerUrl());
+  const automatic = isServerUrlAutomatic();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -14,11 +15,13 @@ export default function Auth({ onAuthenticated }) {
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
-    if (!serverUrl.trim()) {
-      setError('Escribe la URL del servidor.');
-      return;
+    if (!automatic) {
+      if (!serverUrl.trim()) {
+        setError('Escribe la URL del servidor.');
+        return;
+      }
+      setServerUrl(serverUrl.trim());
     }
-    setServerUrl(serverUrl);
     setBusy(true);
     try {
       const data = await api(mode === 'login' ? '/auth/login' : '/auth/register', {
@@ -56,17 +59,23 @@ export default function Auth({ onAuthenticated }) {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <label>
-            URL del servidor
-            <input
-              type="text"
-              value={serverUrl}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://tu-app.onrender.com"
-              spellCheck={false}
-            />
-          </label>
-          <small className="hint">En Render pega aquí la URL que te dé Render. En local: http://localhost:3000</small>
+          {automatic ? (
+            <small className="hint">Conectado automáticamente a {serverUrl}</small>
+          ) : (
+            <>
+              <label>
+                URL del servidor
+                <input
+                  type="text"
+                  value={serverUrl}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://tu-app.onrender.com"
+                  spellCheck={false}
+                />
+              </label>
+              <small className="hint">En Render pega aquí la URL que te dé Render. En local: http://localhost:3000</small>
+            </>
+          )}
 
           <label>
             Usuario
