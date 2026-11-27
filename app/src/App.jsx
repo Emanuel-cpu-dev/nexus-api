@@ -3,7 +3,8 @@ import { api } from './api.js';
 import { getServerUrl } from './config.js';
 import { connectSocket, disconnectSocket, getSocket } from './socket.js';
 import {
-  configureNative, stopNative, consumeNativeOpen, onNativeOpen, showNativeUpdate, isNative
+  configureNative, stopNative, consumeNativeOpen, onNativeOpen, showNativeUpdate, isNative,
+  registerBack, onAndroidBack, exitApp, startNativeLocation, stopNativeLocation, onNativeLocation
 } from './native.js';
 import Auth from './components/Auth.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -17,8 +18,9 @@ import CallOverlay from './components/CallOverlay.jsx';
 import Cine from './components/Cine.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
+import Location from './components/Location.jsx';
 import UpdateBanner from './components/UpdateBanner.jsx';
-import { checkForUpdate, installUpdate } from './updater.js';
+import { checkForUpdate, getNativeVersion, installUpdate } from './updater.js';
 import { playSound, unlockSound } from './sound.js';
 import {
   getMyStatus, setMyStatus, getSoundEnabled, setSoundEnabled, isQuietStatus
@@ -68,6 +70,11 @@ export default function App() {
   const [profileUser, setProfileUser] = useState(null);
   const [profileReturnView, setProfileReturnView] = useState('friends');
   const [communityOpen, setCommunityOpen] = useState(null);
+  const [locationState, setLocationState] = useState({
+    sharedWith: [], sharedBy: [], positions: {}
+  });
+  const [locationRequests, setLocationRequests] = useState([]);
+  const [locating, setLocating] = useState(false);
   const [unread, setUnread] = useState({});
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -81,6 +88,40 @@ export default function App() {
   const contentRef = useRef(null);
   const pullRef = useRef(0);
   const refreshingRef = useRef(false);
+  const historyRef = useRef([]);
+  const screenRef = useRef({ view: 'home' });
+  const lastLocationSent = useRef(0);
+
+  screenRef.current = {
+    view, activeChat, cineTarget, profileUser, profileReturnView, communityOpen
+  };
+
+  // Navegación real como en Instagram: cada pantalla entra a una pila y el
+  // botón "atrás" vuelve a la anterior; en el inicio sale de la app.
+  const applyScreen = useCallback((state) => {
+    if ('view' in state) setView(state.view);
+    if ('activeChat' in state) setActiveChat(state.activeChat);
+    if ('cineTarget' in state) setCineTarget(state.cineTarget);
+    if ('profileUser' in state) setProfileUser(state.profileUser);
+    if ('profileReturnView' in state) setProfileReturnView(state.profileReturnView);
+    if ('communityOpen' in state) setCommunityOpen(state.communityOpen);
+  }, []);
+
+  const pushScreen = useCallback((patch) => {
+    historyRef.current = [...historyRef.current, { ...screenRef.current }];
+    applyScreen(patch);
+  }, [applyScreen]);
+
+  const handleBack = useCallback(() => {
+    const stack = historyRef.current;
+    if (!stack.length) {
+      exitApp();
+      return;
+    }
+    const previous = stack[stack.length - 1];
+    historyRef.current = stack.slice(0, -1);
+    applyScreen(previous);
+  }, [applyScreen]);
 
   const toast = useCallback((entry) => {
     const item = typeof entry === 'string' ? { message: entry } : entry;
@@ -104,6 +145,8 @@ export default function App() {
   const applyFoundUpdate = useCallback((found) => {
     if (!found) return;
     if (!found.force && Number(localStorage.getItem('nexus_dismissed_update')) >= found.versionCode) return;
+    // Una obligatoria nunca se puede descartar, aunque una versión vieja guardara el dismiss.
+    if (found.force) localStorage.removeItem('nexus_dismissed_update');
     setUpdate(found);
     if (found.force && Number(localStorage.getItem('nexus_native_update_notified')) < found.versionCode) {
       localStorage.setItem('nexus_native_update_notified', String(found.versionCode));
@@ -131,6 +174,7 @@ export default function App() {
   }, [applyFoundUpdate]);
 
   const dismissUpdate = useCallback(() => {
+    if (update?.force) return;
     if (update) localStorage.setItem('nexus_dismissed_update', String(update.versionCode));
     setUpdate(null);
   }, [update]);
@@ -178,6 +222,37 @@ export default function App() {
     });
   }, [token, me?.id, soundOn, myStatus]);
 
+  // El servidor necesita saber qué APK tiene el celular para dejar de insistir cuando ya actualizó.
+  useEffect(() => {
+    if (!token) return undefined;
+    const socket = getSocket();
+    if (!socket) return undefined;
+    const report = async () => {
+      const native = await getNativeVersion();
+      if (native?.versionCode) socket.emit('app:version', { versionCode: native.versionCode });
+    };
+    report();
+    socket.on('connect', report);
+    return () => socket.off('connect', report);
+  }, [token]);
+
+  // Botón físico "atrás" y tecla Escape: mismo recorrido que una app nativa.
+  useEffect(() => {
+    if (!token) return undefined;
+    registerBack();
+    const unsubscribe = onAndroidBack(handleBack);
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      handleBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [token, handleBack]);
+
   const logout = useCallback((clearCredentials = true) => {
     localStorage.removeItem('nexus_token');
     // Si la sesión venció o el servidor se reinició, conservamos usuario y clave
@@ -197,8 +272,11 @@ export default function App() {
     setCineTarget(null);
     setProfileUser(null);
     setCommunityOpen(null);
+    setLocationRequests([]);
+    setLocationState({ sharedWith: [], sharedBy: [], positions: {} });
     setCall(null);
     setView('home');
+    historyRef.current = [];
   }, []);
 
   const load = useCallback(async () => {
@@ -211,6 +289,7 @@ export default function App() {
       setCommunities(data.communities || []);
       setPosts(data.posts || []);
       setUnread(data.unread || {});
+      if (data.location) setLocationState(data.location);
     } catch (error) {
       toast(error.message);
       if (/401|No autorizado/i.test(error.message)) logout(false);
@@ -218,7 +297,7 @@ export default function App() {
   }, [toast, logout]);
 
   // "Tirar para abajo para actualizar" en el celular (como Instagram).
-  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'profile', 'userProfile', 'settings', 'cine'].includes(view);
+  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'location', 'profile', 'userProfile', 'settings', 'cine'].includes(view);
 
   useEffect(() => {
     const node = contentRef.current;
@@ -316,6 +395,7 @@ export default function App() {
         setCommunities(data.communities || []);
         setPosts(data.posts || []);
         setUnread(data.unread || {});
+      if (data.location) setLocationState(data.location);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -419,6 +499,38 @@ export default function App() {
     function onCallEnded() {
       setCall(null);
     }
+    function onLocationRequest(payload) {
+      if (!payload?.fromId) return;
+      setLocationRequests((current) => (
+        current.some((item) => item.fromId === payload.fromId)
+          ? current
+          : [...current, { fromId: payload.fromId, from: payload.from, at: payload.at }]
+      ));
+      toast({
+        icon: '📍',
+        title: payload.from?.displayName || 'Un amigo',
+        body: 'Te pidió ver su ubicación en tiempo real.',
+        duration: 12000
+      });
+    }
+    function onLocationPermission(payload) {
+      const name = payload?.by?.displayName || 'Tu amigo';
+      toast(payload?.allow
+        ? `📍 ${name} ahora comparte su ubicación con vos.`
+        : `📍 ${name} dejó de compartir su ubicación.`);
+      load();
+    }
+    function onLocationShares(payload) {
+      if (!Array.isArray(payload?.sharedWith)) return;
+      setLocationState((current) => ({ ...current, sharedWith: payload.sharedWith }));
+    }
+    function onLocationUpdate(payload) {
+      if (!payload?.ownerId || !payload?.position) return;
+      setLocationState((current) => ({
+        ...current,
+        positions: { ...(current.positions || {}), [payload.ownerId]: payload.position }
+      }));
+    }
 
     socket.on('presence:update', onPresence);
     socket.on('friend:request', onFriendRequest);
@@ -428,6 +540,10 @@ export default function App() {
     socket.on('call:accepted', onCallAccepted);
     socket.on('call:rejected', onCallRejected);
     socket.on('call:ended', onCallEnded);
+    socket.on('location:request', onLocationRequest);
+    socket.on('location:permission', onLocationPermission);
+    socket.on('location:shares', onLocationShares);
+    socket.on('location:update', onLocationUpdate);
 
     return () => {
       socket.off('presence:update', onPresence);
@@ -438,19 +554,36 @@ export default function App() {
       socket.off('call:accepted', onCallAccepted);
       socket.off('call:rejected', onCallRejected);
       socket.off('call:ended', onCallEnded);
+      socket.off('location:request', onLocationRequest);
+      socket.off('location:permission', onLocationPermission);
+      socket.off('location:shares', onLocationShares);
+      socket.off('location:update', onLocationUpdate);
     };
-  }, [me?.id, activeChat?.id, load, notify, friends, applyFoundUpdate]);
+  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate]);
 
   const changeView = useCallback((next) => {
-    // Al entrar a "Ver juntos" desde el menú sin objetivo, usar la sala general.
-    if (next === 'cine' && !cineTarget) {
-      setCineTarget({ type: 'general', id: 'general', name: 'Sala general' });
+    const generalCine = { type: 'general', id: 'general', name: 'Sala general' };
+    if (next === view) {
+      const hasDetail = Boolean(activeChat || communityOpen || profileUser
+        || (next === 'cine' && cineTarget?.id !== 'general'));
+      if (!hasDetail) return;
+      pushScreen({
+        activeChat: null,
+        communityOpen: null,
+        profileUser: null,
+        cineTarget: next === 'cine' ? generalCine : cineTarget
+      });
+      return;
     }
+    const patch = { view: next };
+    // Al entrar a "Ver juntos" desde el menú sin objetivo, usar la sala general.
+    if (next === 'cine' && !cineTarget) patch.cineTarget = generalCine;
     // En el celular, tocar "Chats" desde otra sección debe mostrar la lista.
-    if (next === 'messages' && view !== 'messages') setActiveChat(null);
-    if (next !== 'communities') setCommunityOpen(null);
-    setView(next);
-  }, [cineTarget, view]);
+    if (next === 'messages') patch.activeChat = null;
+    if (next !== 'communities') patch.communityOpen = null;
+    if (next !== 'userProfile') patch.profileUser = null;
+    pushScreen(patch);
+  }, [cineTarget, view, activeChat, communityOpen, profileUser, pushScreen]);
 
   const openDm = useCallback(async (friend, nextView = 'messages') => {
     if (!friend?.id) return;
@@ -468,15 +601,13 @@ export default function App() {
     } catch (error) {
       toast(error.message);
     }
-    setActiveChat(chat);
-    setCommunityOpen(null);
+    pushScreen({ activeChat: chat, communityOpen: null, view: nextView });
     setUnread((current) => {
       const next = { ...current };
       delete next[friend.id];
       return next;
     });
-    setView(nextView);
-  }, [me?.id, toast]);
+  }, [me?.id, toast, pushScreen]);
 
   // Si el celular abrió la app desde un aviso (o la llamada llegó cerrada), la recuperamos.
   // Se ejecuta al tocar la notificación, al volver al frente y como respaldo al cargar.
@@ -526,45 +657,74 @@ export default function App() {
       communityId: community.id,
       name: community.name
     };
-    setActiveChat(chat);
-    setCommunityOpen(community);
-    setCineTarget({ type: 'community', id: community.id, name: community.name });
+    pushScreen({
+      activeChat: chat,
+      communityOpen: community,
+      cineTarget: { type: 'community', id: community.id, name: community.name },
+      view: 'communities'
+    });
     setUnread((current) => {
       const next = { ...current };
       delete next[`community:${community.id}`];
       return next;
     });
-    setView('communities');
-  }, []);
+  }, [pushScreen]);
 
   const openProfile = useCallback(async (friend) => {
     if (!friend?.id) return;
     try {
       const data = await api(`/users/${friend.id}`);
-      setProfileUser({ ...data.user, privateProfile: Boolean(data.private) });
-      setProfileReturnView(view === 'userProfile' ? profileReturnView : view);
-      setView('userProfile');
+      pushScreen({
+        profileUser: { ...data.user, privateProfile: Boolean(data.private) },
+        profileReturnView: view === 'userProfile' ? profileReturnView : view,
+        view: 'userProfile'
+      });
     } catch (error) {
       toast(error.message);
     }
-  }, [toast, view, profileReturnView]);
+  }, [toast, view, profileReturnView, pushScreen]);
 
   const openCineForFriend = useCallback(async (friend) => {
-    await openDm(friend, 'cine');
-    setCineTarget({ type: 'dm', id: friend.id, name: friend.displayName });
-  }, [openDm]);
+    if (!friend?.id) return;
+    let chat = {
+      type: 'dm',
+      id: `dm:${[friend.id, me?.id].filter(Boolean).sort().join(':')}`,
+      userId: friend.id,
+      name: friend.displayName,
+      user: friend
+    };
+    try {
+      const data = await api(`/chats/dm/${friend.id}`);
+      chat = { ...data.chat, user: friend };
+    } catch (error) {
+      toast(error.message);
+    }
+    pushScreen({
+      activeChat: chat,
+      cineTarget: { type: 'dm', id: friend.id, name: friend.displayName },
+      communityOpen: null,
+      view: 'cine'
+    });
+    setUnread((current) => {
+      const next = { ...current };
+      delete next[friend.id];
+      return next;
+    });
+  }, [me?.id, toast, pushScreen]);
 
   const openCineForChat = useCallback((chat) => {
     if (!chat || (chat.type !== 'dm' && chat.type !== 'community')) {
       toast('Abre un chat con un amigo o una comunidad para ver juntos.');
       return;
     }
-    setActiveChat(chat);
-    setCineTarget(chat.type === 'dm'
-      ? { type: 'dm', id: chat.userId || chat.id, name: chat.name }
-      : { type: 'community', id: chat.communityId || chat.id, name: chat.name });
-    setView('cine');
-  }, [toast]);
+    pushScreen({
+      activeChat: chat,
+      cineTarget: chat.type === 'dm'
+        ? { type: 'dm', id: chat.userId || chat.id, name: chat.name }
+        : { type: 'community', id: chat.communityId || chat.id, name: chat.name },
+      view: 'cine'
+    });
+  }, [toast, pushScreen]);
 
   const startCall = useCallback((friend) => {
     if (!friend?.id) {
@@ -587,6 +747,100 @@ export default function App() {
       });
     });
   }, [me?.id, toast]);
+
+  const emitLocation = useCallback((lat, lng, accuracy) => {
+    const socket = getSocket();
+    if (!socket?.connected || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const stamp = Date.now();
+    if (stamp - lastLocationSent.current < 12 * 1000) return;
+    lastLocationSent.current = stamp;
+    socket.emit('location:update', {
+      lat, lng, accuracy: Number(accuracy) || 0, at: new Date(stamp).toISOString()
+    });
+  }, []);
+
+  const requestLocation = useCallback((ownerId) => {
+    const socket = getSocket();
+    if (!socket?.connected) return toast('Sin conexión para pedir la ubicación.');
+    socket.emit('location:request', { ownerId }, (response) => {
+      if (response?.error) toast(response.error);
+      else toast('Pedido enviado. Tu amigo debe aceptarlo.');
+    });
+  }, [toast]);
+
+  const respondLocation = useCallback((viewerId, allow) => {
+    const socket = getSocket();
+    if (!socket?.connected) return;
+    socket.emit('location:permission', { viewerId, allow }, (response) => {
+      if (response?.error) toast(response.error);
+      else {
+        setLocationRequests((current) => current.filter((item) => item.fromId !== viewerId));
+        load();
+      }
+    });
+  }, [load, toast]);
+
+  const revokeLocation = useCallback((viewerId) => {
+    const socket = getSocket();
+    if (!socket?.connected) return;
+    socket.emit('location:revoke', { viewerId }, (response) => {
+      if (response?.error) toast(response.error);
+      else load();
+    });
+  }, [load, toast]);
+
+  const stopAllLocation = useCallback(() => {
+    const socket = getSocket();
+    if (!socket?.connected) return;
+    socket.emit('location:stopAll', {}, (response) => {
+      if (response?.error) toast(response.error);
+      else load();
+    });
+  }, [load, toast]);
+
+  // Si el usuario compartió su ubicación, el celular reporta puntos cada ~15 s.
+  const sharedWithKey = (locationState.sharedWith || []).slice().sort().join(',');
+  useEffect(() => {
+    if (!token || !sharedWithKey) return undefined;
+    let stopped = false;
+    let watchId = null;
+    let unsubscribeNative = () => {};
+
+    setLocating(true);
+    unsubscribeNative = onNativeLocation((point) => {
+      if (!stopped && Number.isFinite(point?.lat) && Number.isFinite(point?.lng)) {
+        emitLocation(point.lat, point.lng, point.accuracy);
+      }
+    });
+
+    (async () => {
+      const started = await startNativeLocation();
+      if (started || stopped) return;
+      if (!navigator.geolocation) {
+        toast('Este dispositivo no puede compartir ubicación.');
+        return;
+      }
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          if (!stopped) emitLocation(
+            position.coords.latitude,
+            position.coords.longitude,
+            position.coords.accuracy
+          );
+        },
+        () => toast('Activá el permiso de ubicación para compartir tu posición.'),
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+      );
+    })();
+
+    return () => {
+      stopped = true;
+      unsubscribeNative();
+      if (watchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId);
+      stopNativeLocation();
+      setLocating(false);
+    };
+  }, [token, sharedWithKey, emitLocation, toast]);
 
   const resolvedChat = useMemo(() => (
     activeChat && (activeChat.type === 'dm' || activeChat.type === 'community')
@@ -693,7 +947,7 @@ export default function App() {
               <button
                 type="button"
                 className={`dm-item wide ${resolvedChat.type === 'general' ? 'active' : ''}`}
-                onClick={() => setActiveChat({ type: 'general', id: 'general', name: 'Chat general' })}
+                onClick={() => pushScreen({ activeChat: { type: 'general', id: 'general', name: 'Chat general' } })}
               >
                 🌐 Chat general
               </button>
@@ -714,7 +968,7 @@ export default function App() {
             <Chat
               chat={resolvedChat}
               me={me}
-              onBack={() => setActiveChat(null)}
+              onBack={handleBack}
               onCall={(user) => startCall(user)}
               onCine={openCineForChat}
             />
@@ -735,7 +989,7 @@ export default function App() {
 
         {view === 'communities' && communityOpen && (
           <div className="community-detail">
-            <button type="button" className="ghost" onClick={() => setCommunityOpen(null)}>← Todas las comunidades</button>
+            <button type="button" className="ghost" onClick={handleBack}>← Todas las comunidades</button>
             <h2>🌐 {communityOpen.name}</h2>
             <div className="community-detail-grid">
               <Feed communityId={communityOpen.id} compact onProfile={openProfile} />
@@ -754,6 +1008,18 @@ export default function App() {
           <Communities communities={communities} unread={unread} refresh={load} onOpen={openCommunity} />
         )}
 
+        {view === 'location' && (
+          <Location
+            friends={friends}
+            location={locationState}
+            locating={locating}
+            onRequest={requestLocation}
+            onRevoke={revokeLocation}
+            onStopAll={stopAllLocation}
+            onBack={handleBack}
+          />
+        )}
+
         {view === 'profile' && (
           <Profile
             me={me}
@@ -767,7 +1033,7 @@ export default function App() {
         {view === 'userProfile' && profileUser && (
           <UserProfile
             user={profileUser}
-            onBack={() => changeView(profileReturnView)}
+            onBack={handleBack}
             onDm={() => openDm(profileUser)}
           />
         )}
@@ -791,6 +1057,35 @@ export default function App() {
           friends={friends}
           onClose={() => setCall(null)}
         />
+      )}
+
+      {locationRequests.length > 0 && (
+        <div className="location-requests">
+          {locationRequests.map((request) => (
+            <div className="card location-request" key={request.fromId}>
+              <div>
+                <strong>📍 {request.from?.displayName || 'Un amigo'}</strong>
+                <div className="tiny muted">Quiere ver tu ubicación en tiempo real.</div>
+              </div>
+              <div className="location-request-actions">
+                <button
+                  type="button"
+                  className="primary small"
+                  onClick={() => respondLocation(request.fromId, true)}
+                >
+                  Permitir
+                </button>
+                <button
+                  type="button"
+                  className="ghost small"
+                  onClick={() => respondLocation(request.fromId, false)}
+                >
+                  Rechazar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       <ToastStack toasts={toasts} />

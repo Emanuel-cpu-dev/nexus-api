@@ -12,6 +12,14 @@ import {
   communityIdsFor,
   getWatchRoom,
   saveWatchRoom,
+  setLocationShare,
+  removeLocationShare,
+  removeAllLocationShares,
+  locationViewersFor,
+  locationOwnersFor,
+  canSeeLocation,
+  saveLocation,
+  latestLocationFor,
   uid,
   now
 } from './db.js';
@@ -19,11 +27,61 @@ import { addSocket, removeSocket, onlineUsers, isOnline, getStatus, setStatus } 
 import { addInvite, removeInvite } from './pending.js';
 
 const MAX_CALL_PARTICIPANTS = 5;
+const UPDATE_REMINDER_MS = Number(process.env.UPDATE_REMINDER_MS) || 60 * 1000;
 
 export function setupSocket(io, release = {}) {
   const calls = new Map();
-  // Un aviso por usuario mientras el servidor esté levantado: el cartel es obligatorio.
+  // Aviso inicial una vez por usuario; después se repite hasta que informe la versión nueva.
   const updateNoticeSent = new Set();
+  const updateState = new Map();
+  const lastLocationAt = new Map();
+  const targetVersion = Number(release?.versionCode) || 0;
+  const forceUpdate = Boolean(release?.force && targetVersion > 0);
+
+  function sendUpdateNotice(userId) {
+    io.to(`user:${userId}`).emit('dm:message', {
+      updateNotice: true,
+      versionCode: targetVersion,
+      versionName: String(release.versionName || ''),
+      notes: String(release.notes || ''),
+      message: {
+        id: `update-${targetVersion}`,
+        room: `update:${userId}`,
+        fromId: 'nexus-update',
+        author: { displayName: '⬆️ Actualización obligatoria' },
+        text: `Abrí Nexus y tocá Actualizar para instalar la versión ${release.versionName || targetVersion}.`,
+        createdAt: now()
+      }
+    });
+  }
+
+  function stopUpdateReminders(userId) {
+    const state = updateState.get(userId);
+    if (state?.timer) clearInterval(state.timer);
+    updateState.delete(userId);
+  }
+
+  function ensureUpdateReminders(userId) {
+    if (!forceUpdate) return;
+    let state = updateState.get(userId);
+    if (!state) {
+      state = { version: 0, timer: null };
+      updateState.set(userId, state);
+    }
+    if (state.version >= targetVersion) {
+      stopUpdateReminders(userId);
+      return;
+    }
+    if (state.timer) return;
+    state.timer = setInterval(() => {
+      const current = updateState.get(userId);
+      if (!current) return stopUpdateReminders(userId);
+      if (current.version >= targetVersion || socketsOf(userId).length === 0) {
+        return stopUpdateReminders(userId);
+      }
+      sendUpdateNotice(userId);
+    }, UPDATE_REMINDER_MS);
+  }
 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
@@ -95,26 +153,27 @@ export function setupSocket(io, release = {}) {
     addSocket(myId, socket.id);
     socket.join(`user:${myId}`);
 
-    // Aviso obligatorio de actualización: viaja como aviso, no se guarda como mensaje.
-    // Las APK 1.4 lo muestran como notificación; las 1.5 lo convierten en aviso de actualización.
-    const updateCode = Number(release?.versionCode) || 0;
-    if (release?.force && updateCode > 0 && !updateNoticeSent.has(myId)) {
-      updateNoticeSent.add(myId);
-      io.to(`user:${myId}`).emit('dm:message', {
-        updateNotice: true,
-        versionCode: updateCode,
-        versionName: String(release.versionName || ''),
-        notes: String(release.notes || ''),
-        message: {
-          id: `update-${updateCode}`,
-          room: `update:${myId}`,
-          fromId: 'nexus-update',
-          author: { displayName: '⬆️ Actualización obligatoria' },
-          text: `Abrí Nexus y tocá Actualizar para instalar la versión ${release.versionName || updateCode}.`,
-          createdAt: now()
-        }
-      });
-    }
+    // El primer aviso lo dispara la app al informar su versión. Así un celular
+    // ya actualizado no recibe un aviso espurio al reconectarse tras un deploy.
+
+    // La app informa su versión: si sigue vieja, el server vuelve a mandar el aviso cada minuto.
+    socket.on('app:version', (payload) => {
+      const version = Number(payload?.versionCode) || 0;
+      socket.appVersion = version;
+      if (!forceUpdate) return;
+      const state = updateState.get(myId) || { version: 0, timer: null };
+      state.version = version;
+      updateState.set(myId, state);
+      if (version >= targetVersion) {
+        stopUpdateReminders(myId);
+        return;
+      }
+      if (!updateNoticeSent.has(myId)) {
+        updateNoticeSent.add(myId);
+        sendUpdateNotice(myId);
+      }
+      ensureUpdateReminders(myId);
+    });
 
     for (const friendId of friendIds(myId)) {
       io.to(`user:${friendId}`).emit('presence:update', {
@@ -125,6 +184,10 @@ export function setupSocket(io, release = {}) {
     }
     for (const communityId of communityIdsFor(myId)) {
       socket.join(`community:${communityId}`);
+    }
+    // Si otro amigo ya autorizó compartir, entramos a su sala de ubicación.
+    for (const ownerId of locationOwnersFor(myId)) {
+      socket.join(`location:${ownerId}`);
     }
 
     // Mensajes que esperaban entrega: ahora que el destinatario está conectado,
@@ -367,8 +430,108 @@ export function setupSocket(io, release = {}) {
       });
     });
 
+    // ---------- Ubicación compartida (siempre con permiso del dueño) ----------
+    socket.on('location:request', (payload, ack) => {
+      const ownerId = String(payload?.ownerId || '');
+      const done = typeof ack === 'function' ? ack : () => {};
+      if (!areFriends(myId, ownerId)) return done({ error: 'Solo puedes pedírselo a un amigo.' });
+      io.to(`user:${ownerId}`).emit('location:request', {
+        fromId: myId,
+        from: publicUser(getUserById(myId)),
+        at: now()
+      });
+      return done({ ok: true });
+    });
+
+    socket.on('location:permission', (payload, ack) => {
+      const viewerId = String(payload?.viewerId || '');
+      const allow = Boolean(payload?.allow);
+      const done = typeof ack === 'function' ? ack : () => {};
+      if (!areFriends(myId, viewerId)) return done({ error: 'Esa persona no es tu amiga.' });
+      if (allow) setLocationShare(myId, viewerId);
+      else removeLocationShare(myId, viewerId);
+
+      for (const target of socketsOf(viewerId)) {
+        if (allow) target.join(`location:${myId}`);
+        else target.leave(`location:${myId}`);
+      }
+      io.to(`user:${viewerId}`).emit('location:permission', {
+        ownerId: myId,
+        allow,
+        by: publicUser(getUserById(myId))
+      });
+      io.to(`user:${myId}`).emit('location:shares', {
+        sharedWith: locationViewersFor(myId)
+      });
+      return done({ ok: true });
+    });
+
+    socket.on('location:revoke', (payload, ack) => {
+      const viewerId = String(payload?.viewerId || '');
+      const done = typeof ack === 'function' ? ack : () => {};
+      removeLocationShare(myId, viewerId);
+      for (const target of socketsOf(viewerId)) target.leave(`location:${myId}`);
+      io.to(`user:${viewerId}`).emit('location:permission', {
+        ownerId: myId,
+        allow: false,
+        by: publicUser(getUserById(myId))
+      });
+      io.to(`user:${myId}`).emit('location:shares', {
+        sharedWith: locationViewersFor(myId)
+      });
+      return done({ ok: true });
+    });
+
+    socket.on('location:stopAll', (_payload, ack) => {
+      const done = typeof ack === 'function' ? ack : () => {};
+      const viewers = locationViewersFor(myId);
+      removeAllLocationShares(myId);
+      for (const viewerId of viewers) {
+        for (const target of socketsOf(viewerId)) target.leave(`location:${myId}`);
+        io.to(`user:${viewerId}`).emit('location:permission', {
+          ownerId: myId,
+          allow: false,
+          by: publicUser(getUserById(myId))
+        });
+      }
+      io.to(`user:${myId}`).emit('location:shares', { sharedWith: [] });
+      return done({ ok: true });
+    });
+
+    socket.on('location:update', (payload, ack) => {
+      const done = typeof ack === 'function' ? ack : () => {};
+      const lat = Number(payload?.lat);
+      const lng = Number(payload?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        return done({ error: 'Coordenadas inválidas.' });
+      }
+      if (!locationViewersFor(myId).length) return done({ ok: true, viewers: 0 });
+
+      const last = lastLocationAt.get(socket.id) || 0;
+      if (Date.now() - last < 10 * 1000) return done({ ok: true, throttled: true });
+      lastLocationAt.set(socket.id, Date.now());
+
+      const position = {
+        lat: Number(lat.toFixed(6)),
+        lng: Number(lng.toFixed(6)),
+        accuracy: Math.max(0, Math.min(10000, Number(payload?.accuracy) || 0)),
+        at: now()
+      };
+      saveLocation(myId, position);
+      io.to(`location:${myId}`).emit('location:update', { ownerId: myId, position });
+      return done({ ok: true, viewers: locationViewersFor(myId).length });
+    });
+
+    socket.on('location:latest', (payload, ack) => {
+      const ownerId = String(payload?.ownerId || '');
+      const done = typeof ack === 'function' ? ack : () => {};
+      if (!canSeeLocation(myId, ownerId)) return done({ error: 'No tenés permiso para ver esta ubicación.' });
+      return done({ ok: true, position: latestLocationFor(ownerId) });
+    });
+
     socket.on('disconnect', () => {
       const wentOffline = removeSocket(myId, socket.id);
+      lastLocationAt.delete(socket.id);
       if (wentOffline) {
         for (const friendId of friendIds(myId)) {
           io.to(`user:${friendId}`).emit('presence:update', {

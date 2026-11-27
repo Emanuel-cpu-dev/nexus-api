@@ -21,6 +21,7 @@ import org.json.JSONObject;
 public class NexusNotifyPlugin extends Plugin {
     private static String pendingOpen = null;
     private static NexusNotifyPlugin instance = null;
+    private static boolean backRegistered = false;
 
     @Override
     public void load() {
@@ -56,6 +57,25 @@ public class NexusNotifyPlugin extends Plugin {
             pendingOpen = null;
         }
         call.resolve(result);
+    }
+
+    static boolean onBackPressed() {
+        if (instance == null || !backRegistered) return false;
+        instance.notifyListeners("nexusBack", new JSObject(), false);
+        return true;
+    }
+
+    @PluginMethod
+    public void registerBack(PluginCall call) {
+        backRegistered = true;
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void exitApp(PluginCall call) {
+        Activity activity = getActivity();
+        if (activity != null) activity.finishAffinity();
+        call.resolve();
     }
 
     @PluginMethod

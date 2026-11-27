@@ -23,6 +23,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(UpdaterPlugin.class);
         registerPlugin(NexusNotifyPlugin.class);
+        registerPlugin(NexusLocationPlugin.class);
         super.onCreate(savedInstanceState);
         // Permite que el audio de las videollamadas arranque sin exigir un toque extra.
         getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
@@ -41,7 +42,11 @@ public class MainActivity extends BridgeActivity {
             getWindow().setNavigationBarDividerColor(Color.parseColor("#0d0e14"));
         }
         View decor = getWindow().getDecorView();
+        // Las horas y los iconos del Android deben verse claros sobre el fondo oscuro.
+        WindowCompat.getInsetsController(getWindow(), decor).setAppearanceLightStatusBars(false);
+        WindowCompat.getInsetsController(getWindow(), decor).setAppearanceLightNavigationBars(false);
         View webView = getBridge().getWebView();
+        webView.setFitsSystemWindows(false);
         int mask = WindowInsetsCompat.Type.systemBars()
                 | WindowInsetsCompat.Type.systemGestures()
                 | WindowInsetsCompat.Type.displayCutout();
@@ -89,5 +94,20 @@ public class MainActivity extends BridgeActivity {
         NexusNotifyPlugin.setPendingOpen(detail.toString());
         intent.removeExtra("nexusFromId");
         intent.removeExtra("nexusCallId");
+    }
+
+    // La pila de pantallas vive en React; Android solo le avisa. Cuando React
+    // decide que ya está en el inicio, llama a exitApp().
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        if (NexusNotifyPlugin.onBackPressed()) return;
+        super.onBackPressed();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        NexusLocationPlugin.onPermissionsResult(requestCode, grantResults);
     }
 }

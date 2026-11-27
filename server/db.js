@@ -101,6 +101,12 @@ db.exec(`
     host_id TEXT,
     updated_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS location_shares (
+    owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    viewer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (owner_id, viewer_id)
+  );
 `);
 
 // Migraciones simples para bases creadas antes de la foto de perfil y de los recibos.
@@ -295,6 +301,68 @@ export function areFriends(a, b) {
 export function addFriendship(a, b) {
   const [x, y] = [a, b].sort();
   db.prepare('INSERT OR IGNORE INTO friends (a, b, created_at) VALUES (?, ?, ?)').run(x, y, now());
+}
+
+// Ubicación compartida: solo el dueño del dispositivo puede autorizarla.
+export function setLocationShare(ownerId, viewerId) {
+  if (!areFriends(ownerId, viewerId)) return false;
+  db.prepare(`
+    INSERT INTO location_shares (owner_id, viewer_id, created_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(owner_id, viewer_id) DO NOTHING
+  `).run(ownerId, viewerId, now());
+  return true;
+}
+
+export function removeLocationShare(ownerId, viewerId) {
+  db.prepare('DELETE FROM location_shares WHERE owner_id = ? AND viewer_id = ?').run(ownerId, viewerId);
+}
+
+export function removeAllLocationShares(ownerId) {
+  db.prepare('DELETE FROM location_shares WHERE owner_id = ?').run(ownerId);
+}
+
+export function locationViewersFor(ownerId) {
+  return db.prepare('SELECT viewer_id AS id FROM location_shares WHERE owner_id = ?')
+    .all(ownerId).map((row) => row.id);
+}
+
+export function locationOwnersFor(viewerId) {
+  return db.prepare('SELECT owner_id AS id FROM location_shares WHERE viewer_id = ?')
+    .all(viewerId).map((row) => row.id);
+}
+
+export function canSeeLocation(viewerId, ownerId) {
+  return Boolean(db.prepare(
+    'SELECT 1 FROM location_shares WHERE owner_id = ? AND viewer_id = ?'
+  ).get(ownerId, viewerId));
+}
+
+// La posición es volátil: nunca se guarda en SQLite ni se incluye en backups.
+const latestLocations = new Map();
+const LOCATION_TTL = 10 * 60 * 1000;
+
+export function saveLocation(ownerId, position) {
+  latestLocations.set(ownerId, { ...position, at: position.at || now() });
+}
+
+export function latestLocationFor(ownerId) {
+  const point = latestLocations.get(ownerId);
+  if (!point) return null;
+  if (Date.now() - new Date(point.at).getTime() > LOCATION_TTL) {
+    latestLocations.delete(ownerId);
+    return null;
+  }
+  return point;
+}
+
+export function latestLocationsFor(viewerId) {
+  const result = {};
+  for (const ownerId of locationOwnersFor(viewerId)) {
+    const point = latestLocationFor(ownerId);
+    if (point) result[ownerId] = point;
+  }
+  return result;
 }
 
 export function dmRoom(a, b) {

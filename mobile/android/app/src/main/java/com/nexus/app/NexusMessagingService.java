@@ -132,6 +132,15 @@ public class NexusMessagingService extends Service {
             socket.on("call:ready", args -> onCallReady(args));
             socket.on("call:ended", args -> onCallEnded(args));
             socket.on("friend:request", args -> onFriendRequest(args));
+            socket.on(Socket.EVENT_CONNECT, args -> {
+                try {
+                    JSONObject version = new JSONObject();
+                    version.put("versionCode", installedVersion());
+                    socket.emit("app:version", version);
+                } catch (Exception ignored) {
+                    // Si no se puede informar, el servidor sigue mandando el aviso inicial.
+                }
+            });
             socket.connect();
         } catch (Exception error) {
             socket = null;

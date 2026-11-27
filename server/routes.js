@@ -36,7 +36,11 @@ import {
   fileShape,
   getFileById,
   getWatchRoom,
-  saveWatchRoom
+  saveWatchRoom,
+  locationViewersFor,
+  locationOwnersFor,
+  latestLocationFor,
+  latestLocationsFor
 } from './db.js';
 
 export function createRoutes(io) {
@@ -156,7 +160,12 @@ export function createRoutes(io) {
       outgoing,
       communities: communitiesFor(id),
       posts: postsFor(id),
-      unread: unreadCountsFor(id)
+      unread: unreadCountsFor(id),
+      location: {
+        sharedWith: locationViewersFor(id),
+        sharedBy: locationOwnersFor(id),
+        positions: latestLocationsFor(id)
+      }
     });
   });
 

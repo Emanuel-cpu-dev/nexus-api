@@ -1,7 +1,7 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "force": true,
-  "notes": "OBLIGATORIA: menú abajo sin tapar, avisos que abren el chat, mensajes sin leer, perfiles clicleables y llamadas que cortan el timbre al salir.",
+  "notes": "OBLIGATORIA: avisos que se repiten hasta actualizar, botón atrás pantalla por pantalla, pantalla sin tapar y ubicación de amigos solo con permiso.",
   "apkUrl": "/Nexus.apk"
 }

@@ -645,4 +645,49 @@ p { margin: 6px 0 12px; }
   .auth-screen { padding: 16px; }
   .auth-card { padding: 22px 18px; }
   .auth-card .brand-mark { width: 46px; height: 46px; font-size: 23px; border-radius: 14px; }
+
+  /* Ocho accesos siguen cabiendo sin que Android tape el menú. */
+  .sidebar { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .nav-item { min-height: 44px; padding: 6px 1px; font-size: 9px; }
+  .nav-icon { font-size: 18px; }
+  .nav-item.active { box-shadow: inset 0 -3px 0 var(--accent); }
+  .nav-badge { top: 0; right: 2px; font-size: 9px; }
 }
+
+/* ---------- Ubicación compartida ---------- */
+.page-heading { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.page-heading h2 { margin: 0; }
+.location-intro .tiny { margin-top: 8px; }
+.location-sharing-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.location-map-card { display: flex; flex-direction: column; gap: 10px; }
+.location-map {
+  width: 100%;
+  height: min(46vh, 360px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0f1119;
+}
+.location-coords { font-variant-numeric: tabular-nums; }
+.location-link { display: inline-block; text-decoration: none; text-align: center; }
+.location-requests {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  z-index: 95;
+  width: min(420px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.location-request {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-color: rgba(88, 101, 242, .55);
+}
+.location-request-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+
+@keyframes pageIn { from { transform: translateY(6px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
+.page { animation: pageIn .18s ease-out; }

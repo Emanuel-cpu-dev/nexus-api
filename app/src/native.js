@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 // En la web (PC/navegador) el plugin no existe: todas las funciones son no-op.
 const NexusNative = registerPlugin('NexusNative');
+const NexusLocation = registerPlugin('NexusLocation');
 
 export function isNative() {
   return Capacitor.getPlatform() !== 'web';
@@ -53,6 +54,66 @@ export function onNativeOpen(callback) {
   if (!isNative()) return () => {};
   try {
     const handle = NexusNative.addListener('nexusOpen', callback);
+    return () => handle?.remove?.();
+  } catch {
+    return () => {};
+  }
+}
+
+// Botón físico "atrás": la app decide si vuelve a la pantalla anterior o sale.
+export async function registerBack() {
+  if (!isNative()) return;
+  try {
+    await NexusNative.registerBack();
+  } catch {
+    // APK anterior: Android cierra la app como antes.
+  }
+}
+
+export function onAndroidBack(callback) {
+  if (!isNative()) return () => {};
+  try {
+    const handle = NexusNative.addListener('nexusBack', callback);
+    return () => handle?.remove?.();
+  } catch {
+    return () => {};
+  }
+}
+
+export async function exitApp() {
+  if (!isNative()) return;
+  try {
+    await NexusNative.exitApp();
+  } catch {
+    // Ignorar.
+  }
+}
+
+// Ubicación: el plugin nativo usa el GPS cuando está disponible; si no,
+// la app cae al geolocation del navegador.
+export async function startNativeLocation() {
+  if (!isNative()) return false;
+  try {
+    await NexusLocation.start();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function stopNativeLocation() {
+  if (!isNative()) return;
+  try {
+    await NexusLocation.stop();
+  } catch {
+    // Ignorar.
+  }
+}
+
+export function onNativeLocation(callback) {
+  if (!isNative()) return () => {};
+  try {
+    const handle = NexusLocation.addListener('nexusLocation', callback);
     return () => handle?.remove?.();
   } catch {
     return () => {};
