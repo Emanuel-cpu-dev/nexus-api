@@ -8,6 +8,8 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**: se toca y ella misma descarga e instala la versión nueva. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
+Si ya tenés la versión 3 instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.3. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+
 ## Instalar en el celular
 
 1. Mejor: abrir en el celular `https://nexus-api-cdxi.onrender.com/Nexus.apk` con Chrome. Si se pasa por WhatsApp, mandar `Nexus.apk` suelto (no el ZIP).
@@ -19,7 +21,10 @@ Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**:
 ## Qué funciona y qué no
 
 - ✅ Chat, amigos, códigos, estados, comunidad, “Ver juntos” y videollamadas (WebRTC nativo del WebView).
+- ✅ Llamadas de hasta **5 participantes**: se pueden invitar amigos desde la propia llamada y todos se escuchan.
+- ✅ La llamada se puede **minimizar** con el botón **－**: sigue sonando y podés usar el resto de la app; volvés a tocar la barrita flotante para abrirla.
 - ✅ Audio en llamadas; si no arranca, tocar **🔊 Activar sonido** dentro de la llamada.
+- ✅ En los comentarios se ve quién escribió cada uno: nombre, usuario y hace cuánto, además del avatar y el texto.
 - ✅ “Recordarme”: viene activado por defecto en PC y celular; al abrir Nexus entrás solo con tu usuario. Si cerrás sesión a propósito, ahí sí se borran los datos guardados.
 - ✅ Fotos de perfil y archivos guardados dentro de SQLite: ya no desaparecen cuando Render hace un deploy.
 - ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Nexus activo” mientras el servicio sigue prendido.

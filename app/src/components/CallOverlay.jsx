@@ -4,6 +4,8 @@ import { RtcManager } from '../rtc.js';
 import { cx } from '../utils.js';
 import Avatar from './Avatar.jsx';
 
+const MAX_CALL_PARTICIPANTS = 5;
+
 function VideoTile({ stream, name, user, muted = false, remote = false }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const [cameraOff, setCameraOff] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [selected, setSelected] = useState([]);
+  const [minimized, setMinimized] = useState(false);
   const [error, setError] = useState('');
   const rtcRef = useRef(null);
   const screenRef = useRef(null);
@@ -49,6 +52,10 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const nameOf = (id) => (id === me?.id
     ? `${me?.displayName} (tú)`
     : userOf(id)?.displayName || 'Participante');
+
+  useEffect(() => {
+    setMinimized(false);
+  }, [callId]);
 
   useEffect(() => {
     if (!callId || !active) return undefined;
@@ -81,10 +88,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         onError: (err) => setError(err.message)
       });
       rtcRef.current = rtc;
-      // Agregamos las pistas y renegociamos: si la oferta llegó antes de abrir el micrófono,
-      // se vuelve a enviar con audio y video incluidos.
+      // No conectamos con `peerIds` acá: ese listado incluye a los invitados que todavía
+      // no aceptaron. Las conexiones se crean con `call:ready`, que trae solo aceptados.
       rtc.setLocalStream(stream);
-      rtc.syncPeers(peerIds);
       getSocket()?.emit('call:resync', { callId });
     }
 
@@ -124,10 +130,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     }
     function onInvite(payload) {
       if (payload?.callId !== callId) return;
-      const ids = payload.peers || [];
-      setPeerIds(ids);
-      rtcRef.current?.syncPeers(ids);
-      rtcRef.current?.renegotiate();
+      // Solo actualizamos la lista visible. WebRTC espera al `call:ready` de la
+      // aceptación para no enviar ofertas a alguien que aún no está en la sala.
+      setPeerIds((current) => [...new Set([...current, ...(payload.peers || [])])]);
     }
     function onEnded(payload) {
       if (!payload || payload.callId === callId) onClose();
@@ -269,6 +274,35 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   }
 
   const inviteable = friends.filter((friend) => !peerIds.includes(friend.id));
+  const roomFull = peerIds.length >= MAX_CALL_PARTICIPANTS;
+  const peopleInRoom = peerIds.length || 1;
+
+  const tiles = (
+    <>
+      <VideoTile stream={localStream} name={`${me?.displayName} (tú)`} user={me} muted />
+      {peerIds.filter((id) => id !== me?.id).map((id) => (
+        <VideoTile key={id} stream={remoteStreams[id]} name={nameOf(id)} user={userOf(id)} remote />
+      ))}
+    </>
+  );
+
+  if (minimized) {
+    // Los videos siguen montados (fuera de pantalla) para que el audio no se corte.
+    return (
+      <>
+        <div className="call-media-hidden" aria-hidden="true">{tiles}</div>
+        <div className="call-mini">
+          <button type="button" className="call-mini-open" onClick={() => setMinimized(false)}>
+            📹 Llamada · {peopleInRoom}/{MAX_CALL_PARTICIPANTS}
+          </button>
+          <button type="button" className="icon-btn" title={muted ? 'Activar micrófono' : 'Silenciar'} onClick={toggleMute}>
+            {muted ? '🔇' : '🎙️'}
+          </button>
+          <button type="button" className="icon-btn" title="Colgar" onClick={hangup}>📴</button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <div className="overlay">
@@ -278,17 +312,15 @@ export default function CallOverlay({ call, me, friends, onClose }) {
             <strong>📹 Llamada Nexus</strong>
             <span className="tiny muted block">En la llamada: {peerIds.map(nameOf).join(', ') || 'Conectando…'}</span>
           </div>
-          <button type="button" className="icon-btn" onClick={hangup}>✕</button>
+          <div className="call-header-actions">
+            <button type="button" className="icon-btn" title="Minimizar y seguir usando la app" onClick={() => setMinimized(true)}>－</button>
+            <button type="button" className="icon-btn" title="Colgar" onClick={hangup}>✕</button>
+          </div>
         </header>
 
         {error && <div className="error-box">{error}</div>}
 
-        <div className="video-grid">
-          <VideoTile stream={localStream} name={`${me?.displayName} (tú)`} user={me} muted />
-          {peerIds.filter((id) => id !== me?.id).map((id) => (
-            <VideoTile key={id} stream={remoteStreams[id]} name={nameOf(id)} user={userOf(id)} remote />
-          ))}
-        </div>
+        <div className="video-grid">{tiles}</div>
 
         <div className="invite-row">
           <select
@@ -298,8 +330,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           >
             {inviteable.map((friend) => <option key={friend.id} value={friend.id}>{friend.displayName}</option>)}
           </select>
-          <button type="button" className="ghost small" disabled={!selected.length} onClick={invite}>Invitar</button>
+          <button type="button" className="ghost small" disabled={roomFull || !selected.length} onClick={invite}>Invitar</button>
         </div>
+        {roomFull && <div className="tiny muted invite-limit">La sala está llena: hasta 5 participantes.</div>}
 
         <div className="call-controls">
           <button type="button" className={cx('control', muted && 'off')} onClick={toggleMute}>

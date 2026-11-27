@@ -168,8 +168,11 @@ export default function Feed({ communityId = null, compact = false }) {
                 {(post.comments || []).map((comment) => (
                   <div className="comment" key={comment.id}>
                     <Avatar user={comment.author} size="xs" />
-                    <div>
-                      <strong className="tiny">{comment.author?.displayName}</strong>
+                    <div className="comment-body">
+                      <div className="comment-meta">
+                        <strong className="tiny">{comment.author?.displayName || 'Alguien'}</strong>
+                        <span className="tiny muted">@{comment.author?.username || 'usuario'} · {timeAgo(comment.createdAt)}</span>
+                      </div>
                       <span className="comment-text">{comment.text}</span>
                     </div>
                   </div>

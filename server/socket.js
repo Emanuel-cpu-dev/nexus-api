@@ -18,6 +18,8 @@ import {
 import { addSocket, removeSocket, onlineUsers, isOnline, getStatus, setStatus } from './presence.js';
 import { addInvite, removeInvite } from './pending.js';
 
+const MAX_CALL_PARTICIPANTS = 5;
+
 export function setupSocket(io) {
   const calls = new Map();
 
@@ -168,15 +170,23 @@ export function setupSocket(io) {
 
     socket.on('call:invite', (payload, callback) => {
       const raw = payload?.to ?? payload?.peerId ?? [];
-      const ids = (Array.isArray(raw) ? raw : [raw])
+      const ids = [...new Set((Array.isArray(raw) ? raw : [raw])
         .map((id) => (typeof id === 'object' ? id?.id : id))
-        .filter((id) => id && id !== myId && getUserById(id));
+        .filter((id) => id && id !== myId && getUserById(id)))];
       if (ids.length === 0) {
         if (typeof callback === 'function') callback({ error: 'Selecciona al menos un amigo.' });
         return;
       }
 
-      let call = calls.get(payload?.callId);
+      const existing = calls.get(payload?.callId);
+      const currentSize = existing ? existing.peers.size : 1;
+      const additions = ids.filter((id) => !existing?.peers.has(id)).length;
+      if (currentSize + additions > MAX_CALL_PARTICIPANTS) {
+        if (typeof callback === 'function') callback({ error: 'La sala admite hasta 5 participantes.' });
+        return;
+      }
+
+      let call = existing;
       let callId;
       if (call) {
         callId = call.id;
@@ -214,6 +224,10 @@ export function setupSocket(io) {
       const call = calls.get(callId);
       if (!call) {
         if (typeof callback === 'function') callback({ error: 'La llamada ya terminó.' });
+        return;
+      }
+      if (!call.peers.has(myId)) {
+        if (typeof callback === 'function') callback({ error: 'No fuiste invitado a esta llamada.' });
         return;
       }
       call.accepted.add(myId);

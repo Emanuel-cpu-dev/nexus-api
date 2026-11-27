@@ -12,10 +12,14 @@ NEXUS EN ANDROID
 Es la misma cuenta de siempre: no hay que registrarse de nuevo.
 La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios de pantalla.
 Cuando haya una APK nueva, aparece un aviso adentro de la app con un boton "Actualizar": tocá ahi y se instala sola.
+Si ya tenes la version 1.2, no hace falta el link: el cartel de actualizar aparece solo.
+El link de descarga es solo para instalar por primera vez o si alguien quedo en una version sin actualizador.
 Version actual: 1.3 (actualizador incluido).
 Recordarme viene activado: al abrir la app entrás solo, en el celular y en la PC.
 Llegan avisos con sonido y vibracion de mensajes y llamadas aunque no tengas la app abierta.
 Al tocar un aviso se abre directamente el chat o la llamada.
+Las llamadas aceptan hasta 5 personas y se pueden minimizar: seguis usando la app y la llamada sigue sonando.
+En los comentarios se ve el nombre y usuario de quien escribio cada uno.
 Si te llaman con la app cerrada, el aviso sigue al abrirla.
 Las fotos ya no se pierden con los updates; si una vieja no aparece, volvé a subirla una vez en Mi perfil.
 En la pantalla de Inicio (y Amigos, Grupos, Perfil, Ajustes) tirá hacia abajo para actualizar, como en Instagram.

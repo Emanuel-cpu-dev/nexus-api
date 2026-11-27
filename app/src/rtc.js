@@ -11,6 +11,8 @@ export class RtcManager {
     this.videoSenders = new Map();
     this.offering = new Set();
     this.reoffer = new Set();
+    this.offerTimers = new Map();
+    this.offerRetries = new Map();
     this.destroyed = false;
 
     const iceServers = [
@@ -41,6 +43,9 @@ export class RtcManager {
         this.videoSenders.delete(id);
         this.offering.delete(id);
         this.reoffer.delete(id);
+        clearTimeout(this.offerTimers.get(id));
+        this.offerTimers.delete(id);
+        this.offerRetries.delete(id);
       }
     }
 
@@ -104,7 +109,7 @@ export class RtcManager {
     return pc;
   }
 
-  async _offer(id) {
+  async _offer(id, iceRestart = false) {
     if (this.destroyed || !this.peers.has(id)) return;
     const pc = this.peers.get(id);
     // Si ya hay una oferta en curso, se marca para enviar otra cuando llegue la respuesta.
@@ -113,14 +118,33 @@ export class RtcManager {
       return;
     }
     this.offering.add(id);
+    clearTimeout(this.offerTimers.get(id));
+    this.offerTimers.delete(id);
     try {
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({ iceRestart });
       await pc.setLocalDescription(offer);
       this.socket?.emit('call:signal', {
         to: id,
         callId: this.callId,
         data: { type: 'offer', description: pc.localDescription }
       });
+      // Si el otro participante todavía no abrió su conexión, la oferta se pierde.
+      // Reintentamos con ICE restart para que el tercero y los siguientes sí se escuchen.
+      const attempt = this.offerRetries.get(id) || 0;
+      if (!pc.remoteDescription && attempt < 3) {
+        this.offerTimers.set(id, setTimeout(async () => {
+          if (this.destroyed || this.peers.get(id) !== pc || pc.remoteDescription) return;
+          try {
+            if (pc.signalingState === 'have-local-offer') {
+              await pc.setRemoteDescription({ type: 'rollback' });
+            }
+          } catch {
+            /* El navegador no soporta rollback: se conserva la oferta anterior. */
+          }
+          this.offerRetries.set(id, attempt + 1);
+          this._offer(id, true);
+        }, 6000));
+      }
     } catch (error) {
       this.onError(error);
     } finally {
@@ -156,7 +180,18 @@ export class RtcManager {
         return;
       }
       if (data?.type === 'offer') {
+        clearTimeout(this.offerTimers.get(from));
+        this.offerTimers.delete(from);
+        this.offerRetries.delete(from);
         const pc = this._createPeer(from);
+        // Si habíamos enviado una oferta al mismo tiempo, volvemos a estable antes de aceptar.
+        try {
+          if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription({ type: 'rollback' });
+          }
+        } catch {
+          /* No soportado: seguimos con el flujo normal. */
+        }
         await pc.setRemoteDescription(data.description);
         await this._flush(from, pc);
         const answer = await pc.createAnswer();
@@ -173,6 +208,9 @@ export class RtcManager {
         return;
       }
       if (data?.type === 'answer') {
+        clearTimeout(this.offerTimers.get(from));
+        this.offerTimers.delete(from);
+        this.offerRetries.delete(from);
         const pc = this.peers.get(from) || this._createPeer(from);
         await pc.setRemoteDescription(data.description);
         await this._flush(from, pc);
@@ -211,5 +249,8 @@ export class RtcManager {
     this.videoSenders.clear();
     this.offering.clear();
     this.reoffer.clear();
+    for (const timer of this.offerTimers.values()) clearTimeout(timer);
+    this.offerTimers.clear();
+    this.offerRetries.clear();
   }
 }
