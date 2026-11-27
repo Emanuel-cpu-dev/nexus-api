@@ -189,16 +189,16 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
             ←
           </button>
         )}
-        <div className="grow">
-          <strong>{title || 'Mensajes'}</strong>
-          <div className="tiny muted">
-            {validDm
-              ? (chat.online ? '🟢 En línea' : '⚫ Desconectado')
-              : validCommunity ? 'Canal de comunidad' : 'Selecciona una conversación'}
+        <div className="grow chat-title-wrap">
+          {validDm && <Avatar user={chat.user} size="xs" />}
+          <div className="grow">
+            <strong>{title || 'Mensajes'}</strong>
+            <div className="tiny muted">
+              {validDm
+                ? (chat.online ? '🟢 En línea' : '⚫ Desconectado')
+                : validCommunity ? 'Canal de comunidad' : 'Selecciona una conversación'}
+            </div>
           </div>
-          {validDm && (
-            <div className="tiny muted">{chat.user?.avatarUrl ? '📷 Con foto' : '👤 Sin foto'}</div>
-          )}
         </div>
         <button type="button" className="icon-btn" title="Llamar" disabled={!validDm} onClick={() => onCall?.(chat.user)}>📹</button>
         <button type="button" className="icon-btn" title="Ver juntos" disabled={!canChat} onClick={() => onCine?.(chat)}>📺</button>

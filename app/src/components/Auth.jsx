@@ -25,7 +25,8 @@ export default function Auth({ onAuthenticated }) {
   const [username, setUsername] = useState(remembered.current?.username || '');
   const [password, setPassword] = useState(remembered.current?.password || '');
   const [displayName, setDisplayName] = useState('');
-  const [remember, setRemember] = useState(Boolean(remembered.current));
+  // Viene marcado por defecto: nadie tiene que acordarse de tocar la casilla.
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const autoTried = useRef(false);
@@ -162,9 +163,9 @@ export default function Auth({ onAuthenticated }) {
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
             />
-            Recordarme en esta PC
+            Recordarme en este dispositivo
           </label>
-          <small className="hint">Entrás automáticamente al abrir Nexus. Los datos quedan solo en este equipo.</small>
+          <small className="hint">Entrás automáticamente al abrir Nexus, en la PC o en el celular. Los datos quedan solo en tu dispositivo.</small>
 
           {error && <div className="error-box">{error}</div>}
 

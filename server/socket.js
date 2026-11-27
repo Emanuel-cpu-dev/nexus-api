@@ -16,6 +16,7 @@ import {
   now
 } from './db.js';
 import { addSocket, removeSocket, onlineUsers, isOnline, getStatus, setStatus } from './presence.js';
+import { addInvite, removeInvite } from './pending.js';
 
 export function setupSocket(io) {
   const calls = new Map();
@@ -39,6 +40,7 @@ export function setupSocket(io) {
   }
 
   function endCall(callId, by) {
+    removeInvite(callId);
     const call = calls.get(callId);
     if (!call) return;
     io.to(`call:${callId}`).emit('call:ended', { callId, by: by || null });
@@ -200,7 +202,10 @@ export function setupSocket(io) {
         video: call.video,
         at: now()
       };
-      for (const userId of ids) io.to(`user:${userId}`).emit('call:invite', invite);
+      for (const userId of ids) {
+        addInvite(userId, invite);
+        io.to(`user:${userId}`).emit('call:invite', invite);
+      }
       if (typeof callback === 'function') callback(null, callId);
     });
 
@@ -227,6 +232,7 @@ export function setupSocket(io) {
     });
 
     socket.on('call:reject', (payload) => {
+      removeInvite(payload?.callId, myId);
       const call = calls.get(payload?.callId);
       if (!call) return;
       io.to(`user:${call.hostId}`).emit('call:rejected', {

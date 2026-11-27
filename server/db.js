@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import './restore.js';
 
@@ -113,6 +113,77 @@ if (!messageColumns.includes('delivered_at')) {
 }
 if (!messageColumns.includes('read_at')) {
   db.exec('ALTER TABLE messages ADD COLUMN read_at TEXT');
+}
+// Los archivos subidos viven dentro de SQLite: el disco de Render se reinicia en cada deploy.
+const fileColumns = db.prepare('PRAGMA table_info(files)').all().map((column) => column.name);
+if (!fileColumns.includes('data')) {
+  db.exec('ALTER TABLE files ADD COLUMN data BLOB');
+}
+
+// node:sqlite puede devolver un BLOB como objeto tipo-array; lo normalizamos a Buffer.
+export function blobBuffer(value) {
+  if (!value) return null;
+  if (Buffer.isBuffer(value)) return value;
+  if (value instanceof Uint8Array) return Buffer.from(value);
+  if (typeof value === 'object') {
+    const keys = Object.keys(value).sort((a, b) => Number(a) - Number(b));
+    return Buffer.from(keys.map((key) => value[key]));
+  }
+  return null;
+}
+
+export function fileDataByFilename(filename) {
+  return db.prepare('SELECT mime, data FROM files WHERE filename = ?').get(String(filename || ''));
+}
+
+export function saveFileData(row) {
+  db.prepare(`
+    INSERT INTO files (id, name, filename, mime, size, uploaded_by, created_at, data)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    row.id, row.name, row.filename, row.mime, row.size,
+    row.uploadedBy, row.createdAt, row.data
+  );
+}
+
+// Migración única: archivos que ya estaban en disco pasan a la base.
+export function migrateUploadsFromDisk(dir) {
+  if (!existsSync(dir)) return 0;
+  const anyUser = db.prepare('SELECT id FROM users LIMIT 1').get();
+  if (!anyUser) return 0;
+  let count = 0;
+  for (const filename of readdirSync(dir)) {
+    const existing = db.prepare('SELECT 1 FROM files WHERE filename = ?').get(filename);
+    if (existing) {
+      const withData = db.prepare('SELECT data FROM files WHERE filename = ?').get(filename);
+      if (withData?.data?.length) continue;
+    }
+    const path = join(dir, filename);
+    try {
+      const data = readFileSync(path);
+      const ext = filename.split('.').pop()?.toLowerCase();
+      const mime = ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' })[ext]
+        || 'application/octet-stream';
+      if (!existing) {
+        saveFileData({
+          id: filename.replace(/\.[^.]+$/, ''),
+          name: filename,
+          filename,
+          mime,
+          size: data.length,
+          uploadedBy: anyUser.id,
+          createdAt: now(),
+          data
+        });
+      } else {
+        db.prepare('UPDATE files SET data = ?, size = ?, mime = ? WHERE filename = ?').run(data, data.length, mime, filename);
+      }
+      count += 1;
+    } catch {
+      // Si no se puede leer, se ignora; el archivo seguirá disponible en disco.
+    }
+  }
+  return count;
 }
 
 export function uid() {

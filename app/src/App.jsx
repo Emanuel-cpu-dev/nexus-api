@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
+import { getServerUrl } from './config.js';
 import { connectSocket, disconnectSocket, getSocket } from './socket.js';
+import { configureNative, stopNative, consumeNativeOpen, isNative } from './native.js';
 import Auth from './components/Auth.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Feed from './components/Feed.jsx';
@@ -89,7 +91,8 @@ export default function App() {
   const notify = useCallback((entry, soundKind) => {
     if (isQuietStatus(myStatus)) return;
     toast(entry);
-    if (soundOn && soundKind) {
+    // En Android el sonido lo pone la notificación nativa (suena aunque la app esté cerrada).
+    if (soundOn && soundKind && !isNative()) {
       try { playSound(soundKind); } catch { /* el audio es opcional */ }
     }
   }, [toast, myStatus, soundOn]);
@@ -147,11 +150,30 @@ export default function App() {
     });
   }, []);
 
-  const logout = useCallback(() => {
+  // El servicio nativo necesita el token y las preferencias para avisar en segundo plano.
+  useEffect(() => {
+    if (!token || !me?.id) {
+      stopNative();
+      return;
+    }
+    configureNative({
+      token,
+      userId: me.id,
+      serverUrl: getServerUrl(),
+      sound: soundOn,
+      quiet: isQuietStatus(myStatus)
+    });
+  }, [token, me?.id, soundOn, myStatus]);
+
+  const logout = useCallback((clearCredentials = true) => {
     localStorage.removeItem('nexus_token');
-    localStorage.removeItem('nexus_user');
-    localStorage.removeItem('nexus_pass');
-    localStorage.removeItem('nexus_remember');
+    // Si la sesión venció o el servidor se reinició, conservamos usuario y clave
+    // para que el próximo arranque entre solo de nuevo.
+    if (clearCredentials === true) {
+      localStorage.removeItem('nexus_user');
+      localStorage.removeItem('nexus_pass');
+      localStorage.removeItem('nexus_remember');
+    }
     disconnectSocket();
     setToken(null);
     setMe(null);
@@ -177,7 +199,7 @@ export default function App() {
       setPosts(data.posts || []);
     } catch (error) {
       toast(error.message);
-      if (/401|No autorizado/i.test(error.message)) logout();
+      if (/401|No autorizado/i.test(error.message)) logout(false);
     }
   }, [toast, logout]);
 
@@ -271,7 +293,7 @@ export default function App() {
       .catch((error) => {
         if (cancelled) return;
         toast(error.message);
-        if (/401|No autorizado/i.test(error.message)) logout();
+        if (/401|No autorizado/i.test(error.message)) logout(false);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -412,6 +434,40 @@ export default function App() {
     setCommunityOpen(null);
     setView(nextView);
   }, [me?.id, toast]);
+
+  // Si el celular abrió la app desde un aviso (o la llamada llegó cerrada), la recuperamos.
+  useEffect(() => {
+    if (!token || !me?.id) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      let opened = null;
+      try { opened = await consumeNativeOpen(); } catch { /* APK vieja: no tiene plugin */ }
+      if (cancelled) return;
+
+      try {
+        const { invites } = await api('/calls/pending');
+        if (cancelled || !Array.isArray(invites)) return;
+        const invite = invites.find((item) => !opened?.callId || item.callId === opened.callId);
+        if (invite) {
+          setCall((current) => current || {
+            status: 'incoming',
+            callId: invite.callId,
+            from: invite.from,
+            peers: invite.peers || [],
+            video: invite.video !== false
+          });
+        }
+      } catch { /* sin llamadas pendientes */ }
+
+      if (opened?.fromId && !opened?.callId) {
+        const friend = friends.find((item) => item.id === opened.fromId);
+        if (friend) openDm(friend);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [token, me?.id, friends, openDm]);
 
   const openCommunity = useCallback((community) => {
     const chat = {
@@ -658,7 +714,7 @@ export default function App() {
 
         {view === 'settings' && (
           <Settings
-            onLogout={logout}
+            onLogout={() => logout(true)}
             status={myStatus}
             onStatus={changeStatus}
             soundOn={soundOn}

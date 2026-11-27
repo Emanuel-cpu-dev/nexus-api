@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { authRequired } from './auth.js';
 import { isOnline, onlineUsers, getStatus } from './presence.js';
+import { getInvites } from './pending.js';
 import {
   db,
   uid,
@@ -26,6 +27,8 @@ import {
   postsFor,
   postsByUser,
   postShape,
+  saveFileData,
+  blobBuffer,
   commentsFor,
   communitiesFor,
   isCommunityMember,
@@ -40,14 +43,8 @@ export function createRoutes(io) {
   const uploadDir = resolve(process.env.UPLOAD_DIR || './uploads');
   mkdirSync(uploadDir, { recursive: true });
 
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-      const ext = extname(file.originalname || '').replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
-      cb(null, `${uid()}${ext}`);
-    }
-  });
-  const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+  // Guardamos el archivo dentro de SQLite: en Render el disco se reinicia con cada deploy.
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
   function singleFile(req, res, next) {
     upload.single('file')(req, res, (err) => {
@@ -55,6 +52,21 @@ export function createRoutes(io) {
         return res.status(400).json({
           error: err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera el límite de 50 MB' : err.message
         });
+      }
+      if (req.file) {
+        const ext = extname(req.file.originalname || '').replace(/[^.a-zA-Z0-9]/g, '').slice(0, 12);
+        const filename = `${uid()}${ext}`;
+        saveFileData({
+          id: uid(),
+          name: req.file.originalname || filename,
+          filename,
+          mime: req.file.mimetype || 'application/octet-stream',
+          size: req.file.size,
+          uploadedBy: req.user.id,
+          createdAt: now(),
+          data: req.file.buffer
+        });
+        req.savedFileId = filename;
       }
       return next();
     });
@@ -77,6 +89,11 @@ export function createRoutes(io) {
   }
 
   router.get('/health', (req, res) => res.json({ ok: true, time: now() }));
+
+  // Para el celular: si la llamada entró con la app cerrada, el aviso sigue acá al abrir.
+  router.get('/calls/pending', authRequired, (req, res) => {
+    return res.json({ invites: getInvites(req.user.id) });
+  });
 
   router.post('/auth/register', (req, res) => {
     const username = String(req.body?.username || '').trim().toLowerCase();
@@ -361,20 +378,9 @@ export function createRoutes(io) {
   });
 
   router.post('/files', authRequired, singleFile, (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'Selecciona un archivo.' });
-    const id = uid();
-    db.prepare(`
-      INSERT INTO files (id, name, filename, mime, size, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      req.file.originalname || 'archivo',
-      req.file.filename,
-      req.file.mimetype || 'application/octet-stream',
-      req.file.size || 0,
-      req.user.id,
-      now()
-    );
-    return res.status(201).json({ file: fileShape(getFileById(id)) });
+    if (!req.savedFileId) return res.status(400).json({ error: 'Selecciona un archivo.' });
+    const saved = db.prepare('SELECT * FROM files WHERE filename = ?').get(req.savedFileId);
+    return res.status(201).json({ file: fileShape(saved) });
   });
 
   router.get('/files/:id', authRequired, (req, res) => {
@@ -386,6 +392,12 @@ export function createRoutes(io) {
   router.get('/files/:id/download', authRequired, (req, res) => {
     const file = getFileById(req.params.id);
     if (!file) return res.status(404).json({ error: 'Archivo no encontrado.' });
+    const data = blobBuffer(file.data);
+    if (data?.length) {
+      res.setHeader('Content-Type', file.mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${String(file.name || file.filename).replace(/"/g, '')}"`);
+      return res.send(data);
+    }
     return res.download(join(uploadDir, file.filename), file.name || file.filename);
   });
 

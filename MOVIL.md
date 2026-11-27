@@ -4,7 +4,7 @@ La APK es un envoltorio nativo (Capacitor/WebView) que abre la misma interfaz qu
 
 `https://nexus-api-cdxi.onrender.com`
 
-No cambia el backend, no cambia el `.exe` de escritorio y **no hay que reenviar la APK cuando hagamos un `git push`**: la interfaz se actualiza sola desde Render. Las cuentas, amistades y mensajes son los mismos.
+No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola desde Render con cada `git push`. Los cambios nativos (como los avisos en segundo plano) sí requieren instalar la APK nueva una sola vez; después llegan solos con el botón **Actualizar**. Las cuentas, amistades y mensajes son los mismos.
 
 Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**: se toca y ella misma descarga e instala la versión nueva. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
@@ -14,18 +14,21 @@ Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**:
 2. Abrir el archivo desde Descargas con la app Archivos.
 3. Si Android pide permiso: **Configuración → Permitir instalación de aplicaciones desconocidas**.
 4. Si aparece Play Protect: **Más información → Instalar de todos modos**.
-5. Abrir Nexus y aceptar permisos de **cámara** y **micrófono** cuando salten.
+5. Abrir Nexus y aceptar permisos de **cámara**, **micrófono** y **notificaciones** cuando salten. El permiso de notificaciones es necesario para que lleguen los avisos con la app cerrada.
 
 ## Qué funciona y qué no
 
 - ✅ Chat, amigos, códigos, estados, comunidad, “Ver juntos” y videollamadas (WebRTC nativo del WebView).
 - ✅ Audio en llamadas; si no arranca, tocar **🔊 Activar sonido** dentro de la llamada.
-- ✅ “Recordarme”: la sesión queda guardada en el celular y los tokens también viven en la SQLite del server.
+- ✅ “Recordarme”: viene activado por defecto en PC y celular; al abrir Nexus entrás solo con tu usuario. Si cerrás sesión a propósito, ahí sí se borran los datos guardados.
+- ✅ Fotos de perfil y archivos guardados dentro de SQLite: ya no desaparecen cuando Render hace un deploy.
+- ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Nexus activo” mientras el servicio sigue prendido.
 - ✅ Interfaz responsive: menú abajo, chats a pantalla completa con botón ←, tarjetas y llamadas adaptadas al celular.
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Primera vez: instalar esta versión 1.2 para tener el actualizador.
+- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.3.
+- ✅ Si la foto de perfil se perdió en un deploy anterior, volvela a subir una vez en **Mi perfil**; desde ahora queda guardada en la base.
 - ❌ **Compartir pantalla** no está disponible en el WebView de Android; la app muestra un aviso claro. Para compartir pantalla se usa la versión de escritorio.
 
 ## Compilar de nuevo (Windows)
