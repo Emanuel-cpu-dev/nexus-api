@@ -172,8 +172,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   function restoreCamera() {
     const audio = localStream?.getAudioTracks() || [];
     const camera = cameraRef.current?.readyState === 'live' ? cameraRef.current : null;
-    rtcRef.current?.replaceVideoTrack(camera);
-    setLocalStream(new MediaStream([...audio, ...(camera ? [camera] : [])]));
+    const next = new MediaStream([...audio, ...(camera ? [camera] : [])]);
+    rtcRef.current?.replaceVideoTrack(camera, next);
+    setLocalStream(next);
     setSharing(false);
   }
 
@@ -211,8 +212,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       const track = stream.getVideoTracks()[0];
       cameraRef.current = localStream?.getVideoTracks()[0] || cameraRef.current || null;
       screenRef.current = stream;
-      rtcRef.current?.replaceVideoTrack(track);
-      setLocalStream((current) => new MediaStream([...(current?.getAudioTracks() || []), track]));
+      const next = new MediaStream([...(localStream?.getAudioTracks() || []), track]);
+      rtcRef.current?.replaceVideoTrack(track, next);
+      setLocalStream(next);
       setSharing(true);
       track.onended = () => {
         screenRef.current = null;
