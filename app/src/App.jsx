@@ -13,6 +13,8 @@ import CallOverlay from './components/CallOverlay.jsx';
 import Cine from './components/Cine.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
+import UpdateBanner from './components/UpdateBanner.jsx';
+import { checkForUpdate, installUpdate } from './updater.js';
 import { playSound, unlockSound } from './sound.js';
 import {
   getMyStatus, setMyStatus, getSoundEnabled, setSoundEnabled, isQuietStatus
@@ -68,6 +70,8 @@ export default function App() {
   const [soundOn, setSoundState] = useState(getSoundEnabled);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [update, setUpdate] = useState(null);
+  const [updating, setUpdating] = useState(false);
   const contentRef = useRef(null);
   const pullRef = useRef(0);
   const refreshingRef = useRef(false);
@@ -89,6 +93,45 @@ export default function App() {
       try { playSound(soundKind); } catch { /* el audio es opcional */ }
     }
   }, [toast, myStatus, soundOn]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      const found = await checkForUpdate();
+      if (cancelled || !found) return;
+      if (Number(localStorage.getItem('nexus_dismissed_update')) >= found.versionCode) return;
+      setUpdate(found);
+    }
+
+    check();
+    const timer = setInterval(check, 30 * 60 * 1000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, []);
+
+  const dismissUpdate = useCallback(() => {
+    if (update) localStorage.setItem('nexus_dismissed_update', String(update.versionCode));
+    setUpdate(null);
+  }, [update]);
+
+  const applyUpdate = useCallback(async () => {
+    if (!update || updating) return;
+    setUpdating(true);
+    try {
+      await installUpdate(update);
+      toast('Descargando la actualización… Se instalará sola cuando termine.');
+      setUpdate(null);
+    } catch (error) {
+      toast(error.message || 'No se pudo iniciar la actualización.');
+    } finally {
+      setUpdating(false);
+    }
+  }, [update, updating, toast]);
 
   const changeStatus = useCallback((next) => {
     setMyStatus(next);
@@ -442,9 +485,19 @@ export default function App() {
     cineTarget || { type: 'general', id: 'general', name: 'Sala general' }
   ), [cineTarget]);
 
+  const updateBanner = (
+    <UpdateBanner
+      update={update}
+      busy={updating}
+      onInstall={applyUpdate}
+      onDismiss={dismissUpdate}
+    />
+  );
+
   if (!token) {
     return (
       <>
+        {updateBanner}
         <Auth onAuthenticated={(user) => {
           setMe(user);
           setToken(localStorage.getItem('nexus_token'));
@@ -456,11 +509,18 @@ export default function App() {
   }
 
   if (loading || !me) {
-    return <div className="loading-screen"><div className="brand-mark">N</div><p>Conectando con Nexus…</p></div>;
+    return (
+      <>
+        {updateBanner}
+        <div className="loading-screen"><div className="brand-mark">N</div><p>Conectando con Nexus…</p></div>
+      </>
+    );
   }
 
   return (
-    <div className="app-shell">
+    <>
+      {updateBanner}
+      <div className="app-shell">
       <Sidebar
         me={me}
         view={view}
@@ -618,6 +678,7 @@ export default function App() {
       )}
 
       <ToastStack toasts={toasts} />
-    </div>
+      </div>
+    </>
   );
 }

@@ -5,7 +5,9 @@
   "description": "Red social de escritorio con chat, llamadas y watch party",
   "author": "Proyecto Final",
   "type": "module",
-  "engines": { "node": ">=22.5.0" },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "main": "electron/main.cjs",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
@@ -16,6 +18,7 @@
     "dist:portable": "npm run build:web && electron-builder --win portable --config electron-builder.config.cjs"
   },
   "dependencies": {
+    "@capacitor/core": "^7.6.11",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

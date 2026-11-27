@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
@@ -15,6 +15,7 @@ const publicUrl = process.env.PUBLIC_URL || `http://localhost:${port}`;
 const uploadDir = resolve(process.env.UPLOAD_DIR || './uploads');
 const uiDir = resolve(process.env.UI_DIR || './app/dist');
 const dataDir = resolve(process.env.DATA_DIR || './data');
+const releaseFile = resolve(process.env.RELEASE_FILE || './mobile-release.json');
 mkdirSync(uploadDir, { recursive: true });
 
 app.use(cors({ origin: '*' }));
@@ -33,6 +34,30 @@ app.get(['/Nexus.apk', '/apk'], (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: now() }));
+
+// Versión de la APK publicada. La app Android la consulta para avisar
+// cuando hay una actualización nueva, sin tener que pasar links manualmente.
+app.get('/api/app-version', (req, res) => {
+  const fallback = {
+    versionCode: 0,
+    versionName: '',
+    notes: '',
+    apkUrl: '/Nexus.apk'
+  };
+  if (!existsSync(releaseFile)) return res.json(fallback);
+  try {
+    const release = JSON.parse(readFileSync(releaseFile, 'utf8'));
+    return res.json({
+      ...fallback,
+      versionCode: Number(release.versionCode) || 0,
+      versionName: String(release.versionName || ''),
+      notes: String(release.notes || ''),
+      apkUrl: String(release.apkUrl || '/Nexus.apk')
+    });
+  } catch (error) {
+    return res.json({ ...fallback, error: error.message });
+  }
+});
 
 // Copia consistente de SQLite para guardarla fuera de Render (rama "data").
 app.get('/api/backup', (req, res) => {

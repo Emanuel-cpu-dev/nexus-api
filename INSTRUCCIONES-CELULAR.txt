@@ -9,9 +9,12 @@ NEXUS EN ANDROID
 5) Abrir Nexus y aceptar permisos de camara y microfono.
 
 Es la misma cuenta de siempre: no hay que registrarse de nuevo.
-La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios.
+La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios de pantalla.
+Cuando haya una APK nueva, aparece un aviso adentro de la app con un boton "Actualizar": tocá ahi y se instala sola.
+Primera vez: instalá esta version 1.2 para tener el actualizador incluido.
 En la pantalla de Inicio (y Amigos, Grupos, Perfil, Ajustes) tirá hacia abajo para actualizar, como en Instagram.
 El ícono y la pantalla de carga son el logo violeta de Nexus, igual que en la PC.
+La hora y la bateria del celular ya no tapan ningun boton.
 
 Para compartir pantalla dentro de una llamada, usar la app de escritorio (en Android no está disponible).
 
