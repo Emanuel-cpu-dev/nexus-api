@@ -8,6 +8,7 @@ app/dist/
 .env
 *.log
 *.zip
+*.apk
 .backup-key
 .data-branch/
 .mobile-tools/

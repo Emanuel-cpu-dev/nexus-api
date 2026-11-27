@@ -25,7 +25,7 @@ No cambia el backend, no cambia el `.exe` de escritorio y **no hay que reenviar 
 
 Herramientas usadas (quedan en `C:\Nexus\.mobile-tools`, fuera del repo):
 
-- JDK 17 (Temurin)
+- JDK 21 (Temurin) — Capacitor 7 compila con Java 21
 - Android SDK: `platform-tools`, `platforms;android-35`, `build-tools;35.0.0`
 - Node 22 (`C:\Nexus\.node22`)
 
@@ -34,7 +34,7 @@ cd C:\Nexus
 npm run build:web
 cd mobile
 $env:Path='C:\Nexus\.node22;'+ $env:Path
-$env:JAVA_HOME='C:\Nexus\.mobile-tools\jdk\jdk-17.0.21.1+2'
+$env:JAVA_HOME='C:\Nexus\.mobile-tools\jdk21\jdk-21.0.13.1+2'
 $env:ANDROID_HOME='C:\Nexus\.mobile-tools\android-sdk'
 $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 npx cap sync android
