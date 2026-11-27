@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "1.8",
+  "versionCode": 10,
+  "versionName": "1.9",
   "force": true,
-  "notes": "OBLIGATORIA: Nexus queda dentro del área del celular arriba y abajo: ni la hora, la señal, el WiFi ni los 3 botones tapan la app. Incluye avisos repetidos, atrás pantalla por pantalla y ubicación con permiso.",
+  "notes": "OBLIGATORIA: corregido el contenedor arriba y abajo contra la hora, señal, WiFi y botones del celular. Incluye avisos repetidos, atrás pantalla por pantalla y ubicación con permiso.",
   "apkUrl": "/Nexus.apk"
 }

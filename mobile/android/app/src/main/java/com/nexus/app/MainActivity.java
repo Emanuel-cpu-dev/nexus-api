@@ -52,15 +52,19 @@ public class MainActivity extends BridgeActivity {
 
         View webView = getBridge().getWebView();
         webView.setFitsSystemWindows(false);
+        // Aplicamos los insets en el CONTENEDOR de la actividad, no en el WebView:
+        // así Capacitor/CoordinatorLayout no puede consumirlos antes y el WebView
+        // se reduce de verdad arriba y abajo.
+        View content = findViewById(android.R.id.content);
         int mask = WindowInsetsCompat.Type.systemBars()
                 | WindowInsetsCompat.Type.systemGestures()
                 | WindowInsetsCompat.Type.displayCutout();
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
             androidx.core.graphics.Insets bars = insets.getInsets(mask);
-            webView.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return WindowInsetsCompat.CONSUMED;
         });
-        ViewCompat.requestApplyInsets(webView);
+        ViewCompat.requestApplyInsets(content);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)

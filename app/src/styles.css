@@ -17,6 +17,8 @@
 * { box-sizing: border-box; }
 
 html, body, #root { height: 100%; margin: 0; overscroll-behavior: none; }
+/* Respaldo dentro del WebView por si el sistema no aplica los insets nativos. */
+#root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 html { -webkit-text-size-adjust: none; text-size-adjust: none; }
 
 body {
