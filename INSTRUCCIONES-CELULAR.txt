@@ -12,10 +12,10 @@ NEXUS EN ANDROID
 Es la misma cuenta de siempre: no hay que registrarse de nuevo.
 La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios de pantalla.
 Cuando haya una APK nueva, aparece un aviso adentro de la app con un boton "Actualizar": tocá ahi y se instala sola.
-La actualizacion 1.7 es obligatoria: ademas del cartel, llega una notificacion al celular y se repite cada minuto hasta que la app se actualice. El cartel no se puede cerrar.
+La actualizacion 1.8 es obligatoria: ademas del cartel, llega una notificacion al celular y se repite cada minuto hasta que la app se actualice. El cartel no se puede cerrar.
 Si ya tenes una version anterior, no hace falta el link: el cartel de actualizar aparece solo.
 El link de descarga es solo para instalar por primera vez o si alguien quedo en una version sin actualizador.
-Version actual: 1.7 (actualizador incluido).
+Version actual: 1.8 (actualizador incluido).
 Recordarme viene activado: al abrir la app entrás solo, en el celular y en la PC.
 Llegan avisos con sonido y vibracion de mensajes y llamadas aunque no tengas la app abierta.
 Al tocar un aviso se abre directamente el chat o la llamada.
@@ -28,7 +28,7 @@ En Inicio, Amigos, Chats, Ver juntos, Grupos, Ubicación, Perfil y Ajustes tirá
 El boton atras vuelve al chat, al perfil o a la pantalla anterior; recien en Inicio sale de la app.
 En Ubicación podés pedir la posición de un amigo, ver su mapa y quitar el permiso cuando quieras; nadie ve la tuya si vos no lo permitis.
 El ícono y la pantalla de carga son el logo violeta de Nexus, igual que en la PC.
-Nexus queda dentro de su area, no en pantalla completa: la hora, la bateria, la señal, el wifi y los 3 botones del celular quedan fuera y no tapan nada.
+Nexus queda dentro de su area, no en pantalla completa: arriba y abajo se reserva el espacio de la hora, la bateria, la señal, el wifi y los 3 botones del celular, y no tapan nada.
 Los avisos de mensajes y llamadas suenan ademas de mostrar la notificacion.
 
 Para compartir pantalla dentro de una llamada, usar la app de escritorio (en Android no está disponible).
