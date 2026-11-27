@@ -6,6 +6,8 @@ import {
   areFriends,
   dmRoom,
   saveMessage,
+  markMessagesDelivered,
+  markMessagesRead,
   isCommunityMember,
   communityIdsFor,
   getWatchRoom,
@@ -72,6 +74,19 @@ export function setupSocket(io) {
       socket.join(`community:${communityId}`);
     }
 
+    // Mensajes que esperaban entrega: ahora que el destinatario está conectado,
+    // marcarlos como entregados y avisar al emisor.
+    for (const friendId of friendIds(myId)) {
+      for (const message of markMessagesDelivered(dmRoom(myId, friendId), friendId)) {
+        io.to(`user:${message.fromId}`).emit('dm:receipt', {
+          room: message.room,
+          ids: [message.id],
+          deliveredAt: message.deliveredAt,
+          readAt: null
+        });
+      }
+    }
+
     socket.on('presence:status', (payload, callback) => {
       const allowed = new Set(['active', 'idle', 'dnd', 'sleep']);
       const status = allowed.has(payload?.status) ? payload.status : 'active';
@@ -94,10 +109,33 @@ export function setupSocket(io) {
         if (typeof callback === 'function') callback({ error: 'No puedes enviar a este usuario.' });
         return;
       }
-      const message = saveMessage(dmRoom(myId, to), myId, text, fileId);
+      const deliveredAt = isOnline(to) ? now() : null;
+      const message = saveMessage(dmRoom(myId, to), myId, text, fileId, deliveredAt);
       io.to(`user:${myId}`).emit('dm:message', { room: message.room, message });
       io.to(`user:${to}`).emit('dm:message', { room: message.room, message });
       if (typeof callback === 'function') callback(null, message);
+    });
+
+    socket.on('dm:read', (payload, callback) => {
+      const from = payload?.to || payload?.from || payload?.userId;
+      if (!from || !areFriends(myId, from)) {
+        if (typeof callback === 'function') callback({ error: 'No se puede marcar como leído.' });
+        return;
+      }
+      const rawIds = payload?.ids;
+      const ids = Array.isArray(rawIds)
+        ? rawIds.filter((id) => typeof id === 'string').slice(0, 150)
+        : [];
+      const rows = markMessagesRead(dmRoom(myId, from), from, ids);
+      for (const message of rows) {
+        io.to(`user:${message.fromId}`).emit('dm:receipt', {
+          room: message.room,
+          ids: [message.id],
+          deliveredAt: message.deliveredAt,
+          readAt: message.readAt
+        });
+      }
+      if (typeof callback === 'function') callback(null, { count: rows.length });
     });
 
     socket.on('community:send', (payload, callback) => {
@@ -207,6 +245,18 @@ export function setupSocket(io) {
         from: myId,
         callId,
         data: payload.data
+      });
+    });
+
+    // Un participante que terminó de abrir cámara/micrófono pide renegociar:
+    // así la oferta nunca se pierde si llegó antes de que su RTCPeerConnection existiera.
+    socket.on('call:resync', (payload) => {
+      const call = calls.get(payload?.callId);
+      if (!call || !call.accepted.has(myId)) return;
+      io.to(`call:${call.id}`).emit('call:ready', {
+        callId: call.id,
+        peers: [...call.accepted],
+        accepted: [...call.accepted]
       });
     });
 

@@ -18,7 +18,11 @@ function MessageBubble({ message, me }) {
         <Avatar user={message.author} size="xs" />
       )}
       <div className="bubble">
-        {!mine && <div className="tiny author-line">{message.author?.displayName}</div>}
+        {!mine && (
+          <div className="tiny author-line">
+            {message.author?.displayName} {message.author?.avatarUrl ? '📷' : '👤 sin foto'}
+          </div>
+        )}
         {message.text && <div className="bubble-text">{message.text}</div>}
         {file && (
           isImage(file.mime)
@@ -27,7 +31,14 @@ function MessageBubble({ message, me }) {
               ? <video className="bubble-media" src={fileUrl(file.url)} controls />
               : <a className="file-chip" href={fileUrl(file.url)} target="_blank" rel="noreferrer">📎 {file.name} ({formatSize(file.size)})</a>
         )}
-        <div className="tiny muted bubble-time">{timeAgo(message.createdAt)}</div>
+        <div className="tiny muted bubble-time">
+          {timeAgo(message.createdAt)}
+          {mine && (
+            <span className="receipt" title={message.readAt ? 'Leído' : message.deliveredAt ? 'Entregado' : 'Enviado'}>
+              {message.readAt ? ' ✓✓' : message.deliveredAt ? ' ✓' : ' 🕒'}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -59,7 +70,12 @@ export default function Chat({ chat, me, compact = false, onCall, onCine }) {
         ? `/chats/dm/${chat.userId}`
         : `/chats/community/${chat.communityId}`;
       const data = await api(path);
-      setMessages(data.messages || []);
+      const loaded = data.messages || [];
+      setMessages(loaded);
+      if (validDm) {
+        const unread = loaded.filter((item) => item.fromId === chat.userId && !item.readAt).map((item) => item.id);
+        if (unread.length) getSocket()?.emit('dm:read', { to: chat.userId, ids: unread });
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -81,7 +97,22 @@ export default function Chat({ chat, me, compact = false, onCall, onCine }) {
       const matches = validDm
         ? payload?.room === dmRoomFor(me.id, chat.userId)
         : payload?.communityId === chat.communityId;
-      if (matches) setMessages((current) => [...current, payload.message]);
+      if (!matches || !payload?.message) return;
+      setMessages((current) => [...current, payload.message]);
+      if (validDm && payload.message.fromId === chat.userId) {
+        getSocket()?.emit('dm:read', { to: chat.userId, ids: [payload.message.id] });
+      }
+    }
+    function onReceipt(payload) {
+      if (!validDm || payload?.room !== dmRoomFor(me.id, chat.userId)) return;
+      const ids = new Set(payload.ids || []);
+      setMessages((current) => current.map((message) => ids.has(message.id)
+        ? {
+            ...message,
+            deliveredAt: message.deliveredAt || payload.deliveredAt || null,
+            readAt: message.readAt || payload.readAt || null
+          }
+        : message));
     }
     function onTyping(payload) {
       if (!validDm || payload?.from !== chat.userId) return;
@@ -92,10 +123,12 @@ export default function Chat({ chat, me, compact = false, onCall, onCine }) {
 
     socket.on('dm:message', onMessage);
     socket.on('community:message', onMessage);
+    socket.on('dm:receipt', onReceipt);
     socket.on('typing', onTyping);
     return () => {
       socket.off('dm:message', onMessage);
       socket.off('community:message', onMessage);
+      socket.off('dm:receipt', onReceipt);
       socket.off('typing', onTyping);
       clearTimeout(typingTimer.current);
     };
@@ -158,6 +191,9 @@ export default function Chat({ chat, me, compact = false, onCall, onCine }) {
               ? (chat.online ? '🟢 En línea' : '⚫ Desconectado')
               : validCommunity ? 'Canal de comunidad' : 'Selecciona una conversación'}
           </div>
+          {validDm && (
+            <div className="tiny muted">{chat.user?.avatarUrl ? '📷 Con foto' : '👤 Sin foto'}</div>
+          )}
         </div>
         <button type="button" className="icon-btn" title="Llamar" disabled={!validDm} onClick={() => onCall?.(chat.user)}>📹</button>
         <button type="button" className="icon-btn" title="Ver juntos" disabled={!canChat} onClick={() => onCine?.(chat)}>📺</button>

@@ -3,15 +3,26 @@ import { getSocket } from '../socket.js';
 import { RtcManager } from '../rtc.js';
 import { cx, initials } from '../utils.js';
 
-function VideoTile({ stream, name, muted = false }) {
+function VideoTile({ stream, name, muted = false, remote = false }) {
   const ref = useRef(null);
   useEffect(() => {
-    if (ref.current) ref.current.srcObject = stream || null;
+    const element = ref.current;
+    if (!element) return;
+    if (element.srcObject !== (stream || null)) element.srcObject = stream || null;
+    // El autoplay con audio puede estar bloqueado hasta que el usuario interactúa.
+    if (stream && element.paused) element.play().catch(() => {});
   }, [stream]);
   const hasVideo = Boolean(stream?.getVideoTracks().length);
   return (
     <div className="video-tile">
-      <video ref={ref} autoPlay playsInline muted={muted} className={cx('tile-video', !hasVideo && 'no-video')} />
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        muted={muted}
+        data-remote={remote ? '1' : undefined}
+        className={cx('tile-video', remote && 'remote-video', !hasVideo && 'no-video')}
+      />
       <span className="video-label">{name || 'Participante'}</span>
       {!hasVideo && <span className="video-avatar">{initials(name)}</span>}
     </div>
@@ -25,6 +36,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const [remoteStreams, setRemoteStreams] = useState({});
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [selected, setSelected] = useState([]);
   const [error, setError] = useState('');
   const rtcRef = useRef(null);
@@ -60,12 +72,16 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         socket: getSocket(),
         callId,
         myId: me.id,
-        localStream: stream,
+        localStream: null,
         onTrack: (id, remote) => setRemoteStreams((current) => ({ ...current, [id]: remote })),
         onError: (err) => setError(err.message)
       });
       rtcRef.current = rtc;
+      // Agregamos las pistas y renegociamos: si la oferta llegó antes de abrir el micrófono,
+      // se vuelve a enviar con audio y video incluidos.
+      rtc.setLocalStream(stream);
       rtc.syncPeers(peerIds);
+      getSocket()?.emit('call:resync', { callId });
     }
 
     start();
@@ -91,6 +107,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       const ids = payload.peers || [];
       setPeerIds(ids);
       rtcRef.current?.syncPeers(ids);
+      rtcRef.current?.renegotiate();
     }
     function onLeft(payload) {
       if (payload?.callId !== callId || !payload.userId) return;
@@ -106,6 +123,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       const ids = payload.peers || [];
       setPeerIds(ids);
       rtcRef.current?.syncPeers(ids);
+      rtcRef.current?.renegotiate();
     }
     function onEnded(payload) {
       if (!payload || payload.callId === callId) onClose();
@@ -151,7 +169,25 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     setCameraOff(next);
   }
 
+  function restoreCamera() {
+    const audio = localStream?.getAudioTracks() || [];
+    const camera = cameraRef.current?.readyState === 'live' ? cameraRef.current : null;
+    rtcRef.current?.replaceVideoTrack(camera);
+    setLocalStream(new MediaStream([...audio, ...(camera ? [camera] : [])]));
+    setSharing(false);
+  }
+
+  function stopScreenShare() {
+    screenRef.current?.getTracks().forEach((track) => track.stop());
+    screenRef.current = null;
+    restoreCamera();
+  }
+
   async function shareScreen() {
+    if (sharing) {
+      stopScreenShare();
+      return;
+    }
     try {
       let stream;
       if (window.electronAPI?.getSources) {
@@ -173,20 +209,25 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       }
       const track = stream.getVideoTracks()[0];
-      cameraRef.current = localStream?.getVideoTracks()[0] || null;
+      cameraRef.current = localStream?.getVideoTracks()[0] || cameraRef.current || null;
       screenRef.current = stream;
       rtcRef.current?.replaceVideoTrack(track);
       setLocalStream((current) => new MediaStream([...(current?.getAudioTracks() || []), track]));
+      setSharing(true);
       track.onended = () => {
-        if (cameraRef.current) rtcRef.current?.replaceVideoTrack(cameraRef.current);
-        setLocalStream((current) => new MediaStream([
-          ...(current?.getAudioTracks() || []),
-          ...(cameraRef.current ? [cameraRef.current] : [])
-        ]));
+        screenRef.current = null;
+        restoreCamera();
       };
     } catch (err) {
       setError(`No se pudo compartir la pantalla: ${err.message}`);
     }
+  }
+
+  function enableRemoteAudio() {
+    document.querySelectorAll('video[data-remote="1"]').forEach((element) => {
+      element.muted = false;
+      element.play().catch(() => {});
+    });
   }
 
   function invite() {
@@ -234,7 +275,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         <div className="video-grid">
           <VideoTile stream={localStream} name={`${me?.displayName} (tú)`} muted />
           {peerIds.filter((id) => id !== me?.id).map((id) => (
-            <VideoTile key={id} stream={remoteStreams[id]} name={nameOf(id)} />
+            <VideoTile key={id} stream={remoteStreams[id]} name={nameOf(id)} remote />
           ))}
         </div>
 
@@ -256,7 +297,10 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           <button type="button" className={cx('control', cameraOff && 'off')} onClick={toggleCamera}>
             {cameraOff ? '📷' : '🎥'} {cameraOff ? 'Activar cámara' : 'Apagar cámara'}
           </button>
-          <button type="button" className="control" onClick={shareScreen}>🖥️ Compartir pantalla</button>
+          <button type="button" className="control" onClick={enableRemoteAudio}>🔊 Activar sonido</button>
+          <button type="button" className={cx('control', sharing && 'off')} onClick={shareScreen}>
+            {sharing ? '🛑 Dejar de compartir' : '🖥️ Compartir pantalla'}
+          </button>
           <button type="button" className="control hangup" onClick={hangup}>📴 Colgar</button>
         </div>
       </div>

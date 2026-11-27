@@ -103,9 +103,16 @@ db.exec(`
   );
 `);
 
-// Migración simple para bases creadas antes de la foto de perfil.
+// Migraciones simples para bases creadas antes de la foto de perfil y de los recibos.
 if (!db.prepare('PRAGMA table_info(users)').all().some((column) => column.name === 'avatar_url')) {
   db.exec("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''");
+}
+const messageColumns = db.prepare('PRAGMA table_info(messages)').all().map((column) => column.name);
+if (!messageColumns.includes('delivered_at')) {
+  db.exec('ALTER TABLE messages ADD COLUMN delivered_at TEXT');
+}
+if (!messageColumns.includes('read_at')) {
+  db.exec('ALTER TABLE messages ADD COLUMN read_at TEXT');
 }
 
 export function uid() {
@@ -246,7 +253,9 @@ export function messageShape(row) {
     text: row.text || '',
     fileId: row.file_id || null,
     file: row.file_id ? fileShape(getFileById(row.file_id)) : null,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    deliveredAt: row.delivered_at || null,
+    readAt: row.read_at || null
   };
 }
 
@@ -259,12 +268,35 @@ export function messagesFor(room, limit = 150) {
   return rows.map(messageShape);
 }
 
-export function saveMessage(room, fromId, text = '', fileId = null) {
+export function saveMessage(room, fromId, text = '', fileId = null, deliveredAt = null) {
   const id = uid();
   db.prepare(`
-    INSERT INTO messages (id, room, from_id, text, file_id, created_at) VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, room, fromId, String(text || '').slice(0, 10000), fileId || null, now());
+    INSERT INTO messages (id, room, from_id, text, file_id, created_at, delivered_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, room, fromId, String(text || '').slice(0, 10000), fileId || null, now(), deliveredAt || null);
   return messageShape(db.prepare('SELECT * FROM messages WHERE id = ?').get(id));
+}
+
+function receiptUpdate(tableColumn, room, fromId, ids, value) {
+  const whereIds = ids?.length
+    ? ` AND id IN (${ids.map(() => '?').join(',')})`
+    : '';
+  const rows = db.prepare(`
+    SELECT * FROM messages WHERE room = ? AND from_id = ? AND ${tableColumn} IS NULL${whereIds}
+  `).all(room, fromId, ...(ids || []));
+  if (!rows.length) return [];
+  db.prepare(`
+    UPDATE messages SET ${tableColumn} = ? WHERE id IN (${rows.map(() => '?').join(',')})
+  `).run(value, ...rows.map((row) => row.id));
+  return rows.map((row) => messageShape({ ...row, [tableColumn]: value }));
+}
+
+export function markMessagesDelivered(room, fromId) {
+  return receiptUpdate('delivered_at', room, fromId, [], now());
+}
+
+export function markMessagesRead(room, fromId, ids) {
+  return receiptUpdate('read_at', room, fromId, ids, now());
 }
 
 export function commentShape(row) {

@@ -3,7 +3,7 @@ export class RtcManager {
     this.socket = socket;
     this.callId = callId;
     this.myId = myId;
-    this.localStream = localStream;
+    this.localStream = localStream || null;
     this.onTrack = onTrack || (() => {});
     this.onError = onError || (() => {});
     this.peers = new Map();
@@ -42,6 +42,28 @@ export class RtcManager {
       if (this.peers.has(id)) continue;
       this._createPeer(id);
       // El participante con el userId más pequeño crea la oferta.
+      if (String(this.myId) < String(id)) this._offer(id);
+    }
+  }
+
+  // El micrófono/cámara pueden abrirse después de que llegó la oferta.
+  // Al llegar el stream se agregan las pistas y se renegocia para que el audio
+  // y el video lleguen también al otro participante.
+  setLocalStream(stream) {
+    if (this.destroyed) return;
+    this.localStream = stream || null;
+    for (const [id, pc] of this.peers) {
+      const sending = new Set(pc.getSenders().map((sender) => sender.track));
+      for (const track of this.localStream?.getTracks() || []) {
+        if (!sending.has(track)) pc.addTrack(track, this.localStream);
+      }
+    }
+    this.renegotiate();
+  }
+
+  renegotiate() {
+    if (this.destroyed) return;
+    for (const id of this.peers.keys()) {
       if (String(this.myId) < String(id)) this._offer(id);
     }
   }
