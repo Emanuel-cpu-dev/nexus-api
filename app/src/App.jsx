@@ -515,6 +515,7 @@ export default function App() {
             onStatus={changeStatus}
             soundOn={soundOn}
             onToggleSound={toggleSound}
+            isOwner={Boolean(me?.isOwner)}
           />
         )}
       </main>

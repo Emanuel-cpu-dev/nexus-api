@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import './restore.js';
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 mkdirSync(DATA_DIR, { recursive: true });
@@ -145,11 +146,14 @@ export function generateCode() {
   throw new Error('No se pudo generar un código único');
 }
 
+const OWNER_USERNAME = (process.env.OWNER_USERNAME || 'emaggi22').toLowerCase();
+
 export function publicUser(row) {
   if (!row) return null;
   return {
     id: row.id,
     username: row.username,
+    isOwner: String(row.username || '').toLowerCase() === OWNER_USERNAME,
     displayName: row.display_name,
     bio: row.bio || '',
     avatarColor: row.avatar_color || '#5865f2',

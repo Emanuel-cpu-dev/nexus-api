@@ -215,6 +215,8 @@ p { margin: 6px 0 12px; }
 .settings-check { flex-direction: row !important; align-items: center; gap: 9px !important; color: var(--text) !important; font-size: 13px !important; cursor: pointer; }
 .settings-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .settings-field select { background: var(--card-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px; }
+.settings-locked input, .settings-locked textarea, .settings-locked button:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(1); }
+.settings-locked label { cursor: not-allowed; }
 
 .presence-dot {
   width: 9px;

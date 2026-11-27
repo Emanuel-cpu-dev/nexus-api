@@ -8,3 +8,5 @@ app/dist/
 .env
 *.log
 *.zip
+.backup-key
+.data-branch/

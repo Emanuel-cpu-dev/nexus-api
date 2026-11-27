@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getServerUrl, setServerUrl, isServerUrlAutomatic } from '../config.js';
 import { STATUSES } from '../preferences.js';
 
-export default function Settings({ onLogout, status, onStatus, soundOn, onToggleSound }) {
+export default function Settings({ onLogout, status, onStatus, soundOn, onToggleSound, isOwner = false }) {
   const [url, setUrl] = useState(getServerUrl());
   const [turn, setTurn] = useState(() => localStorage.getItem('nexus_turn') || '');
   const [message, setMessage] = useState('');
@@ -31,10 +31,18 @@ export default function Settings({ onLogout, status, onStatus, soundOn, onToggle
   return (
     <div className="page">
       <h2>Configuración</h2>
-      <form className="card stack-form" onSubmit={save}>
+      <form className={`card stack-form ${isOwner ? '' : 'settings-locked'}`} onSubmit={save}>
+        <h3>Servidor y llamadas {isOwner ? '' : '🔒'}</h3>
+        {!isOwner && <small className="hint">Estas opciones solo las puede cambiar el dueño de Nexus.</small>}
         <label>
           URL del servidor
-          <input value={url} onChange={(e) => setUrl(e.target.value)} readOnly={isServerUrlAutomatic()} spellCheck={false} />
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            readOnly={!isOwner || isServerUrlAutomatic()}
+            disabled={!isOwner}
+            spellCheck={false}
+          />
         </label>
         <small className="hint">
           {isServerUrlAutomatic()
@@ -48,6 +56,7 @@ export default function Settings({ onLogout, status, onStatus, soundOn, onToggle
             value={turn}
             onChange={(e) => setTurn(e.target.value)}
             rows={4}
+            disabled={!isOwner}
             placeholder={'{"urls":"turn:servidor:3478","username":"user","credential":"pass"}'}
           />
         </label>
@@ -57,7 +66,9 @@ export default function Settings({ onLogout, status, onStatus, soundOn, onToggle
           directamente entre participantes (WebRTC).
         </small>
         {message && <div className="ok-box">{message}</div>}
-        <button type="submit" className="primary">Guardar</button>
+        <button type="submit" className="primary" disabled={!isOwner || isServerUrlAutomatic()}>
+          {isOwner ? 'Guardar' : 'Solo el dueño puede guardar'}
+        </button>
       </form>
 
       <div className="card">
