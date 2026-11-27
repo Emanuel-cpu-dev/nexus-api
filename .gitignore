@@ -9,6 +9,7 @@ app/dist/
 *.log
 *.zip
 *.apk
+!Nexus.apk
 .backup-key
 .data-branch/
 .mobile-tools/

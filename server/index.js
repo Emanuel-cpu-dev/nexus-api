@@ -22,6 +22,16 @@ app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(uploadDir));
 app.use(express.static(uiDir));
 
+// APK de Android: se sirve con el MIME correcto para que el celular la descargue
+// como aplicación y no como un archivo sin tipo desde WhatsApp.
+app.get(['/Nexus.apk', '/apk'], (req, res) => {
+  const file = resolve(process.env.APK_PATH || './Nexus.apk');
+  if (!existsSync(file)) return res.status(404).send('APK no disponible.');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="Nexus.apk"');
+  return res.sendFile(file);
+});
+
 app.get('/api/health', (req, res) => res.json({ ok: true, time: now() }));
 
 // Copia consistente de SQLite para guardarla fuera de Render (rama "data").
