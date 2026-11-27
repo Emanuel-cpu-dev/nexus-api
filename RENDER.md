@@ -20,6 +20,8 @@ Variables de entorno configuradas en Render:
 | `NODE_VERSION` | `22.14.0` |
 | `PUBLIC_URL` | `https://nexus-api-cdxi.onrender.com` |
 | `DATA_DIR` | `./data` |
+| `BACKUP_KEY` | (secreto local, no se muestra) |
+| `OWNER_USERNAME` | `emaggi22` |
 
 ## Verificación funcional realizada
 
@@ -55,9 +57,24 @@ cd C:\Nexus
 git add .; git commit -m 'Actualizar URL de Render'; git push
 ```
 
+## Persistencia de cuentas entre deploys
+
+Render Free no tiene disco persistente, pero Nexus guarda la base fuera del servicio:
+
+- La rama `data` del repo contiene `data/nexus.db`.
+- Al arrancar, `server/restore.js` descarga esa copia (con cache-busting y validación de cabecera SQLite) antes de abrir la base.
+- Cada 2 minutos una automatización local consulta `GET /api/backup?key=…` (copia consistente con `VACUUM INTO`) y actualiza la rama `data` solo si cambió.
+- Por eso las cuentas, contraseñas, códigos de amigo, amistades y mensajes sobreviven a cada `git push`. No hay que crear usuarios nuevos.
+
+La URL quedó fija en `https://nexus-api-cdxi.onrender.com`. Los tokens de “Recordarme” están en la tabla `tokens` de esa base, así que la sesión también sobrevive al reinicio.
+
+## Configuración solo para el dueño
+
+El usuario `emaggi22` (variable `OWNER_USERNAME`) ve los campos de URL del servidor y TURN (JSON) habilitados. Cualquier otro usuario ve ese bloque en gris, con `disabled`/`readOnly` y el botón “Solo el dueño puede guardar”. El estado `isOwner` viaja en `/api/bootstrap`.
+
 ## Aviso
 
-El plan Free se duerme tras inactividad: la primera petición puede tardar ~50 segundos. Además, Render Free no garantiza disco persistente; la base SQLite puede reiniciarse tras un deploy. El stack solicitado (SQLite) se mantuvo sin cambios.
+El plan Free se duerme tras inactividad: la primera petición puede tardar ~50 segundos. La persistencia depende de que la automatización de respaldo siga activa; si se detuviera, la última copia en la rama `data` sería la que se restaure.
 
 ## Cómo se creó (referencia)
 
