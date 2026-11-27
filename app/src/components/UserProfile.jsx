@@ -6,24 +6,30 @@ import Avatar from './Avatar.jsx';
 
 export default function UserProfile({ user, onBack, onDm }) {
   const [posts, setPosts] = useState([]);
+  const [privateProfile, setPrivateProfile] = useState(Boolean(user.privateProfile));
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
+    setPrivateProfile(Boolean(user.privateProfile));
     api(`/users/${user.id}`)
-      .then((data) => { if (!cancelled) setPosts(data.posts || []); })
+      .then((data) => {
+        if (cancelled) return;
+        setPrivateProfile(Boolean(data.private));
+        setPosts(data.posts || []);
+      })
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, [user.id]);
 
   return (
     <div className="page">
-      <button type="button" className="ghost" onClick={onBack}>← Volver a amigos</button>
+      <button type="button" className="ghost" onClick={onBack}>← Volver</button>
       <div className="card profile-card">
         <div className="profile-preview">
           <Avatar user={user} size="xl" />
           <strong>{user.displayName}</strong>
-          <span className="muted">@{user.username}</span>
+          <span className="muted">@{user.username}{privateProfile ? ' · 🔒 Privado' : ''}</span>
           <span className={`presence-dot inline ${user.online ? 'online' : ''}`} />
           {user.bio && <p className="muted">{user.bio}</p>}
           <button type="button" className="primary" onClick={onDm}>💬 Enviar mensaje</button>
@@ -33,7 +39,13 @@ export default function UserProfile({ user, onBack, onDm }) {
       <h2>Publicaciones de {user.displayName}</h2>
       {error && <div className="error-box">{error}</div>}
       <div className="post-list">
-        {posts.length === 0 && <p className="muted empty-state">Todavía no publicó nada.</p>}
+        {posts.length === 0 && (
+          <p className="muted empty-state">
+            {privateProfile
+              ? 'Este perfil es privado. Sus publicaciones solo son visibles para sus amigos.'
+              : 'Todavía no publicó nada.'}
+          </p>
+        )}
         {posts.map((post) => (
           <article className="card post" key={post.id}>
             <header className="post-head">

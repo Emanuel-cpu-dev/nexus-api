@@ -51,27 +51,31 @@ app.get('/api/health', (req, res) => res.json({ ok: true, time: now() }));
 
 // Versión de la APK publicada. La app Android la consulta para avisar
 // cuando hay una actualización nueva, sin tener que pasar links manualmente.
-app.get('/api/app-version', (req, res) => {
+function readRelease() {
   const fallback = {
     versionCode: 0,
     versionName: '',
     notes: '',
+    force: false,
     apkUrl: '/Nexus.apk'
   };
-  if (!existsSync(releaseFile)) return res.json(fallback);
+  if (!existsSync(releaseFile)) return fallback;
   try {
     const release = JSON.parse(readFileSync(releaseFile, 'utf8'));
-    return res.json({
+    return {
       ...fallback,
       versionCode: Number(release.versionCode) || 0,
       versionName: String(release.versionName || ''),
       notes: String(release.notes || ''),
+      force: Boolean(release.force),
       apkUrl: String(release.apkUrl || '/Nexus.apk')
-    });
+    };
   } catch (error) {
-    return res.json({ ...fallback, error: error.message });
+    return { ...fallback, error: error.message };
   }
-});
+}
+
+app.get('/api/app-version', (req, res) => res.json(readRelease()));
 
 // Copia consistente de SQLite para guardarla fuera de Render (rama "data").
 app.get('/api/backup', (req, res) => {
@@ -98,7 +102,7 @@ const io = new Server(httpServer, {
 });
 
 app.use('/api', createRoutes(io));
-setupSocket(io);
+setupSocket(io, readRelease());
 
 app.get('*', (req, res) => res.sendFile(join(uiDir, 'index.html')));
 

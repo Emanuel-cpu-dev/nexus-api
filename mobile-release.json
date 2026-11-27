@@ -1,6 +1,7 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
-  "notes": "Avisos con sonido, llamadas grupales que siguen aunque salga uno, menú sin superposición y deslizar para actualizar.",
+  "versionCode": 6,
+  "versionName": "1.5",
+  "force": true,
+  "notes": "OBLIGATORIA: menú abajo sin tapar, avisos que abren el chat, mensajes sin leer, perfiles clicleables y llamadas que cortan el timbre al salir.",
   "apkUrl": "/Nexus.apk"
 }

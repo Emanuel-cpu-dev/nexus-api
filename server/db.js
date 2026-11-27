@@ -114,6 +114,10 @@ if (!messageColumns.includes('delivered_at')) {
 if (!messageColumns.includes('read_at')) {
   db.exec('ALTER TABLE messages ADD COLUMN read_at TEXT');
 }
+const userColumns = db.prepare('PRAGMA table_info(users)').all().map((column) => column.name);
+if (!userColumns.includes('profile_private')) {
+  db.exec("ALTER TABLE users ADD COLUMN profile_private INTEGER DEFAULT 0");
+}
 // Los archivos subidos viven dentro de SQLite: el disco de Render se reinicia en cada deploy.
 const fileColumns = db.prepare('PRAGMA table_info(files)').all().map((column) => column.name);
 if (!fileColumns.includes('data')) {
@@ -237,6 +241,7 @@ export function publicUser(row) {
     avatarColor: row.avatar_color || '#5865f2',
     avatarUrl: row.avatar_url || '',
     code: row.code,
+    isPrivate: Boolean(row.profile_private),
     createdAt: row.created_at
   };
 }
@@ -339,6 +344,32 @@ export function messagesFor(room, limit = 150) {
   return rows.map(messageShape);
 }
 
+// Mensajes sin leer agrupados por conversación (clave = id del amigo,
+// o "community:<id>" para las comunidades).
+export function unreadCountsFor(userId) {
+  const rows = db.prepare(`
+    SELECT room, COUNT(*) AS c FROM messages
+    WHERE read_at IS NULL AND from_id != ?
+    GROUP BY room
+  `).all(userId);
+  const counts = {};
+  for (const row of rows) {
+    if (row.room.startsWith('dm:')) {
+      const parts = row.room.slice(3).split(':');
+      // Solo contamos conversaciones de las que el usuario es participante.
+      if (!parts.includes(userId)) continue;
+      const other = parts.find((id) => id !== userId);
+      if (other) counts[other] = (counts[other] || 0) + row.c;
+    } else if (row.room.startsWith('community:')) {
+      const communityId = row.room.slice(10);
+      if (!isCommunityMember(userId, communityId)) continue;
+      const key = `community:${communityId}`;
+      counts[key] = (counts[key] || 0) + row.c;
+    }
+  }
+  return counts;
+}
+
 export function saveMessage(room, fromId, text = '', fileId = null, deliveredAt = null) {
   const id = uid();
   db.prepare(`
@@ -411,11 +442,21 @@ export function postShape(row, viewerId) {
   };
 }
 
+// Los perfiles privados solo muestran sus publicaciones a sus amigos (y a su dueño).
+export function canSeePosts(ownerId, viewerId) {
+  if (!ownerId || ownerId === viewerId) return true;
+  const owner = getUserById(ownerId);
+  if (!owner || !owner.profile_private) return true;
+  return areFriends(ownerId, viewerId);
+}
+
 export function postsFor(viewerId, communityId = null) {
   const rows = communityId
     ? db.prepare('SELECT * FROM posts WHERE community_id = ? ORDER BY created_at DESC').all(communityId)
     : db.prepare('SELECT * FROM posts WHERE community_id IS NULL ORDER BY created_at DESC').all();
-  return rows.map((row) => postShape(row, viewerId));
+  return rows
+    .filter((row) => communityId || canSeePosts(row.user_id, viewerId))
+    .map((row) => postShape(row, viewerId));
 }
 
 export function postsByUser(userId, viewerId) {

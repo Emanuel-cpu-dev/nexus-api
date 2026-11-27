@@ -23,6 +23,7 @@ import {
   friendsOf,
   dmRoom,
   messagesFor,
+  unreadCountsFor,
   saveMessage,
   postsFor,
   postsByUser,
@@ -154,7 +155,8 @@ export function createRoutes(io) {
       incoming,
       outgoing,
       communities: communitiesFor(id),
-      posts: postsFor(id)
+      posts: postsFor(id),
+      unread: unreadCountsFor(id)
     });
   });
 
@@ -186,6 +188,10 @@ export function createRoutes(io) {
       fields.push('avatar_url = ?');
       values.push(value);
     }
+    if (req.body?.profilePrivate !== undefined) {
+      fields.push('profile_private = ?');
+      values.push(req.body.profilePrivate ? 1 : 0);
+    }
     if (fields.length) {
       values.push(id);
       db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
@@ -196,9 +202,13 @@ export function createRoutes(io) {
   router.get('/users/:id', authRequired, (req, res) => {
     const user = getUserById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    const privateForMe = Boolean(user.profile_private)
+      && user.id !== req.user.id
+      && !areFriends(user.id, req.user.id);
     return res.json({
       user: { ...publicUser(user), online: isOnline(user.id), status: getStatus(user.id) },
-      posts: postsByUser(user.id, req.user.id)
+      private: privateForMe,
+      posts: privateForMe ? [] : postsByUser(user.id, req.user.id)
     });
   });
 

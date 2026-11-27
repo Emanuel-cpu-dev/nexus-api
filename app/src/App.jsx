@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
 import { getServerUrl } from './config.js';
 import { connectSocket, disconnectSocket, getSocket } from './socket.js';
-import { configureNative, stopNative, consumeNativeOpen, isNative } from './native.js';
+import {
+  configureNative, stopNative, consumeNativeOpen, onNativeOpen, showNativeUpdate, isNative
+} from './native.js';
 import Auth from './components/Auth.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Feed from './components/Feed.jsx';
@@ -64,7 +66,9 @@ export default function App() {
   const [activeChat, setActiveChat] = useState(null);
   const [cineTarget, setCineTarget] = useState(null);
   const [profileUser, setProfileUser] = useState(null);
+  const [profileReturnView, setProfileReturnView] = useState('friends');
   const [communityOpen, setCommunityOpen] = useState(null);
+  const [unread, setUnread] = useState({});
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [loading, setLoading] = useState(Boolean(token));
@@ -97,14 +101,23 @@ export default function App() {
     }
   }, [toast, myStatus, soundOn]);
 
+  const applyFoundUpdate = useCallback((found) => {
+    if (!found) return;
+    if (!found.force && Number(localStorage.getItem('nexus_dismissed_update')) >= found.versionCode) return;
+    setUpdate(found);
+    if (found.force && Number(localStorage.getItem('nexus_native_update_notified')) < found.versionCode) {
+      localStorage.setItem('nexus_native_update_notified', String(found.versionCode));
+      showNativeUpdate(found);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     async function check() {
       const found = await checkForUpdate();
       if (cancelled || !found) return;
-      if (Number(localStorage.getItem('nexus_dismissed_update')) >= found.versionCode) return;
-      setUpdate(found);
+      applyFoundUpdate(found);
     }
 
     check();
@@ -115,7 +128,7 @@ export default function App() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', check);
     };
-  }, []);
+  }, [applyFoundUpdate]);
 
   const dismissUpdate = useCallback(() => {
     if (update) localStorage.setItem('nexus_dismissed_update', String(update.versionCode));
@@ -197,6 +210,7 @@ export default function App() {
       setOutgoing(data.outgoing || []);
       setCommunities(data.communities || []);
       setPosts(data.posts || []);
+      setUnread(data.unread || {});
     } catch (error) {
       toast(error.message);
       if (/401|No autorizado/i.test(error.message)) logout(false);
@@ -301,6 +315,7 @@ export default function App() {
         setOutgoing(data.outgoing || []);
         setCommunities(data.communities || []);
         setPosts(data.posts || []);
+        setUnread(data.unread || {});
       })
       .catch((error) => {
         if (cancelled) return;
@@ -356,10 +371,20 @@ export default function App() {
       load();
     }
     function onDmMessage(payload) {
+      // El servidor manda el aviso obligatorio por este canal para que llegue
+      // incluso a las APK antiguas; acá lo convertimos en cartel de actualización.
+      if (payload?.updateNotice) {
+        checkForUpdate().then(applyFoundUpdate).catch(() => {});
+        return;
+      }
       const message = payload?.message;
       if (!message || message.fromId === me.id) return;
       const room = `dm:${[me.id, message.fromId].sort().join(':')}`;
       if (activeChat?.id !== room) {
+        setUnread((current) => ({
+          ...current,
+          [message.fromId]: (current[message.fromId] || 0) + 1
+        }));
         const friend = friends.find((item) => item.id === message.fromId);
         notify({
           icon: '💬',
@@ -414,7 +439,7 @@ export default function App() {
       socket.off('call:rejected', onCallRejected);
       socket.off('call:ended', onCallEnded);
     };
-  }, [me?.id, activeChat?.id, load, notify, friends]);
+  }, [me?.id, activeChat?.id, load, notify, friends, applyFoundUpdate]);
 
   const changeView = useCallback((next) => {
     // Al entrar a "Ver juntos" desde el menú sin objetivo, usar la sala general.
@@ -445,43 +470,54 @@ export default function App() {
     }
     setActiveChat(chat);
     setCommunityOpen(null);
+    setUnread((current) => {
+      const next = { ...current };
+      delete next[friend.id];
+      return next;
+    });
     setView(nextView);
   }, [me?.id, toast]);
 
   // Si el celular abrió la app desde un aviso (o la llamada llegó cerrada), la recuperamos.
-  useEffect(() => {
-    if (!token || !me?.id) return undefined;
-    let cancelled = false;
+  // Se ejecuta al tocar la notificación, al volver al frente y como respaldo al cargar.
+  const checkNativeOpen = useCallback(async () => {
+    if (!token || !me?.id || document.visibilityState === 'hidden') return;
+    let opened = null;
+    try { opened = await consumeNativeOpen(); } catch { /* APK vieja: no tiene plugin */ }
 
-    (async () => {
-      let opened = null;
-      try { opened = await consumeNativeOpen(); } catch { /* APK vieja: no tiene plugin */ }
-      if (cancelled) return;
-
-      try {
-        const { invites } = await api('/calls/pending');
-        if (cancelled || !Array.isArray(invites)) return;
-        const invite = invites.find((item) => !opened?.callId || item.callId === opened.callId);
-        if (invite) {
-          setCall((current) => current || {
-            status: 'incoming',
-            callId: invite.callId,
-            from: invite.from,
-            hostId: invite.hostId || invite.from?.id,
-            peers: invite.peers || [],
-            video: invite.video !== false
-          });
-        }
-      } catch { /* sin llamadas pendientes */ }
-
-      if (opened?.fromId && !opened?.callId) {
-        const friend = friends.find((item) => item.id === opened.fromId);
-        if (friend) openDm(friend);
+    try {
+      const { invites } = await api('/calls/pending');
+      if (!Array.isArray(invites)) return;
+      const invite = invites.find((item) => !opened?.callId || item.callId === opened.callId);
+      if (invite) {
+        setCall((current) => current || {
+          status: 'incoming',
+          callId: invite.callId,
+          from: invite.from,
+          hostId: invite.hostId || invite.from?.id,
+          peers: invite.peers || [],
+          video: invite.video !== false
+        });
       }
-    })();
+    } catch { /* sin llamadas pendientes */ }
 
-    return () => { cancelled = true; };
+    if (opened?.fromId && !opened?.callId) {
+      const friend = friends.find((item) => item.id === opened.fromId);
+      if (friend) openDm(friend);
+    }
   }, [token, me?.id, friends, openDm]);
+
+  useEffect(() => {
+    checkNativeOpen();
+    document.addEventListener('visibilitychange', checkNativeOpen);
+    window.addEventListener('focus', checkNativeOpen);
+    const unsubscribe = onNativeOpen(checkNativeOpen);
+    return () => {
+      document.removeEventListener('visibilitychange', checkNativeOpen);
+      window.removeEventListener('focus', checkNativeOpen);
+      unsubscribe();
+    };
+  }, [checkNativeOpen]);
 
   const openCommunity = useCallback((community) => {
     const chat = {
@@ -493,6 +529,11 @@ export default function App() {
     setActiveChat(chat);
     setCommunityOpen(community);
     setCineTarget({ type: 'community', id: community.id, name: community.name });
+    setUnread((current) => {
+      const next = { ...current };
+      delete next[`community:${community.id}`];
+      return next;
+    });
     setView('communities');
   }, []);
 
@@ -500,12 +541,13 @@ export default function App() {
     if (!friend?.id) return;
     try {
       const data = await api(`/users/${friend.id}`);
-      setProfileUser(data.user);
+      setProfileUser({ ...data.user, privateProfile: Boolean(data.private) });
+      setProfileReturnView(view === 'userProfile' ? profileReturnView : view);
       setView('userProfile');
     } catch (error) {
       toast(error.message);
     }
-  }, [toast]);
+  }, [toast, view, profileReturnView]);
 
   const openCineForFriend = useCallback(async (friend) => {
     await openDm(friend, 'cine');
@@ -598,6 +640,7 @@ export default function App() {
         changeView={changeView}
         friends={friends}
         activeChat={activeChat}
+        unread={unread}
         onDm={openDm}
         onLogout={logout}
         status={myStatus}
@@ -624,7 +667,7 @@ export default function App() {
               </div>
               <button type="button" className="primary" onClick={() => changeView('friends')}>👥 Mis amigos</button>
             </div>
-            <Feed posts={posts} />
+            <Feed posts={posts} onProfile={openProfile} />
           </div>
         )}
 
@@ -634,6 +677,7 @@ export default function App() {
             friends={friends}
             incoming={incoming}
             outgoing={outgoing}
+            unread={unread}
             refresh={load}
             onDm={openDm}
             onCall={startCall}
@@ -663,6 +707,7 @@ export default function App() {
                   <Avatar user={friend} size="xs" />
                   <span className="dm-name grow">{friend.displayName}</span>
                   <span className={`presence-dot ${friend.online ? 'online' : ''}`} />
+                  {unread[friend.id] > 0 && <span className="dm-badge">{unread[friend.id]}</span>}
                 </button>
               ))}
             </div>
@@ -693,7 +738,7 @@ export default function App() {
             <button type="button" className="ghost" onClick={() => setCommunityOpen(null)}>← Todas las comunidades</button>
             <h2>🌐 {communityOpen.name}</h2>
             <div className="community-detail-grid">
-              <Feed communityId={communityOpen.id} compact />
+              <Feed communityId={communityOpen.id} compact onProfile={openProfile} />
               <Chat
                 chat={resolvedChat}
                 me={me}
@@ -706,7 +751,7 @@ export default function App() {
         )}
 
         {view === 'communities' && !communityOpen && (
-          <Communities communities={communities} refresh={load} onOpen={openCommunity} />
+          <Communities communities={communities} unread={unread} refresh={load} onOpen={openCommunity} />
         )}
 
         {view === 'profile' && (
@@ -722,7 +767,7 @@ export default function App() {
         {view === 'userProfile' && profileUser && (
           <UserProfile
             user={profileUser}
-            onBack={() => changeView('friends')}
+            onBack={() => changeView(profileReturnView)}
             onDm={() => openDm(profileUser)}
           />
         )}

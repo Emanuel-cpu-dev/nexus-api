@@ -20,9 +20,26 @@ import org.json.JSONObject;
 @CapacitorPlugin(name = "NexusNative")
 public class NexusNotifyPlugin extends Plugin {
     private static String pendingOpen = null;
+    private static NexusNotifyPlugin instance = null;
+
+    @Override
+    public void load() {
+        super.load();
+        instance = this;
+    }
 
     static void setPendingOpen(String json) {
         pendingOpen = json;
+        if (instance == null) return;
+        try {
+            JSONObject data = new JSONObject(json);
+            JSObject event = new JSObject();
+            if (data.has("fromId")) event.put("fromId", data.getString("fromId"));
+            if (data.has("callId")) event.put("callId", data.getString("callId"));
+            instance.notifyListeners("nexusOpen", event, true);
+        } catch (Exception ignored) {
+            // El evento se puede recuperar igual con consumeOpen().
+        }
     }
 
     @PluginMethod
@@ -39,6 +56,16 @@ public class NexusNotifyPlugin extends Plugin {
             pendingOpen = null;
         }
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void notifyUpdate(PluginCall call) {
+        NexusMessagingService.showUpdate(
+                getContext(),
+                call.getInt("versionCode", 0),
+                call.getString("versionName", ""),
+                call.getString("notes", ""));
+        call.resolve();
     }
 
     @PluginMethod

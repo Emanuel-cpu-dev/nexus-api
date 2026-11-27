@@ -19,7 +19,7 @@ function Attachment({ file }) {
   );
 }
 
-export default function Feed({ communityId = null, compact = false }) {
+export default function Feed({ communityId = null, compact = false, onProfile }) {
   const [posts, setPosts] = useState([]);
   const [text, setText] = useState('');
   const [progress, setProgress] = useState(null);
@@ -139,11 +139,18 @@ export default function Feed({ communityId = null, compact = false }) {
         {posts.map((post) => (
           <article className="card post" key={post.id}>
             <header className="post-head">
-              <Avatar user={post.author} />
-              <div className="grow">
-                <strong>{post.author?.displayName}</strong>
-                <div className="tiny muted">@{post.author?.username} · {timeAgo(post.createdAt)}</div>
-              </div>
+              <button
+                type="button"
+                className="post-author"
+                onClick={() => onProfile?.(post.author)}
+                title={`Ver perfil de ${post.author?.displayName || 'este usuario'}`}
+              >
+                <Avatar user={post.author} />
+                <div className="grow">
+                  <strong className="post-author-name">{post.author?.displayName}</strong>
+                  <div className="tiny muted">@{post.author?.username} · {timeAgo(post.createdAt)}</div>
+                </div>
+              </button>
             </header>
             {post.text && <p className="post-text">{post.text}</p>}
             <Attachment file={post.file} />

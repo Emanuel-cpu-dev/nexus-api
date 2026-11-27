@@ -33,3 +33,28 @@ export async function consumeNativeOpen() {
     return null;
   }
 }
+
+// Muestra el aviso de actualización en la bandeja del celular, aunque la app esté abierta.
+export async function showNativeUpdate(update) {
+  if (!isNative() || !update) return;
+  try {
+    await NexusNative.notifyUpdate({
+      versionCode: Number(update.versionCode) || 0,
+      versionName: String(update.versionName || ''),
+      notes: String(update.notes || '')
+    });
+  } catch {
+    // APK anterior: el cartel dentro de la app igual aparece.
+  }
+}
+
+// El aviso nativo avisa en el momento en que se toca, aunque la app ya estuviera abierta.
+export function onNativeOpen(callback) {
+  if (!isNative()) return () => {};
+  try {
+    const handle = NexusNative.addListener('nexusOpen', callback);
+    return () => handle?.remove?.();
+  } catch {
+    return () => {};
+  }
+}

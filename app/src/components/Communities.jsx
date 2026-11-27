@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { getSocket } from '../socket.js';
 import { initials, timeAgo } from '../utils.js';
 
-export default function Communities({ communities, onOpen, refresh }) {
+export default function Communities({ communities, unread = {}, onOpen, refresh }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
@@ -86,6 +86,9 @@ export default function Communities({ communities, onOpen, refresh }) {
                 {community.joined
                   ? <button type="button" className="primary small" onClick={() => onOpen(community)}>Abrir</button>
                   : <button type="button" className="ghost small" onClick={() => join(community)}>Unirse</button>}
+                {unread[`community:${community.id}`] > 0 && (
+                  <span className="dm-badge">{unread[`community:${community.id}`]}</span>
+                )}
               </div>
             </div>
           ))}

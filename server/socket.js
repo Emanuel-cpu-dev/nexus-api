@@ -20,8 +20,10 @@ import { addInvite, removeInvite } from './pending.js';
 
 const MAX_CALL_PARTICIPANTS = 5;
 
-export function setupSocket(io) {
+export function setupSocket(io, release = {}) {
   const calls = new Map();
+  // Un aviso por usuario mientras el servidor esté levantado: el cartel es obligatorio.
+  const updateNoticeSent = new Set();
 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
@@ -45,8 +47,12 @@ export function setupSocket(io) {
     removeInvite(callId);
     const call = calls.get(callId);
     if (!call) return;
-    io.to(`call:${callId}`).emit('call:ended', { callId, by: by || null });
+    const ended = { callId, by: by || null, cancelled: true };
+    io.to(`call:${callId}`).emit('call:ended', ended);
+    // También avisamos sala por sala: así deja de sonar incluso en un celular
+    // que tenía el aviso nativo pero no llegó a entrar a la sala de la llamada.
     for (const userId of call.peers) {
+      io.to(`user:${userId}`).emit('call:ended', ended);
       for (const socket of socketsOf(userId)) socket.leave(`call:${callId}`);
     }
     calls.delete(callId);
@@ -59,9 +65,19 @@ export function setupSocket(io) {
     call.peers.delete(userId);
     call.accepted.delete(userId);
 
-    // Sale uno, no se corta la sala: si era el anfitrión, el rol pasa a otro participante.
-    if (wasHost && call.peers.size > 0) {
-      call.hostId = [...call.accepted][0] || [...call.peers][0];
+    // Si se va quien llamó, deja de sonarle a quienes todavía no aceptaron.
+    // Los que ya estaban dentro pueden seguir con el nuevo anfitrión.
+    if (wasHost) {
+      for (const id of [...call.peers]) {
+        if (call.accepted.has(id)) continue;
+        removeInvite(callId, id);
+        io.to(`user:${id}`).emit('call:ended', { callId, by: userId, cancelled: true });
+        for (const socket of socketsOf(id)) socket.leave(`call:${callId}`);
+        call.peers.delete(id);
+      }
+      if (call.peers.size > 0) {
+        call.hostId = [...call.accepted][0] || [...call.peers][0];
+      }
     }
 
     io.to(`call:${callId}`).emit('call:left', {
@@ -78,6 +94,27 @@ export function setupSocket(io) {
 
     addSocket(myId, socket.id);
     socket.join(`user:${myId}`);
+
+    // Aviso obligatorio de actualización: viaja como aviso, no se guarda como mensaje.
+    // Las APK 1.4 lo muestran como notificación; las 1.5 lo convierten en aviso de actualización.
+    const updateCode = Number(release?.versionCode) || 0;
+    if (release?.force && updateCode > 0 && !updateNoticeSent.has(myId)) {
+      updateNoticeSent.add(myId);
+      io.to(`user:${myId}`).emit('dm:message', {
+        updateNotice: true,
+        versionCode: updateCode,
+        versionName: String(release.versionName || ''),
+        notes: String(release.notes || ''),
+        message: {
+          id: `update-${updateCode}`,
+          room: `update:${myId}`,
+          fromId: 'nexus-update',
+          author: { displayName: '⬆️ Actualización obligatoria' },
+          text: `Abrí Nexus y tocá Actualizar para instalar la versión ${release.versionName || updateCode}.`,
+          createdAt: now()
+        }
+      });
+    }
 
     for (const friendId of friendIds(myId)) {
       io.to(`user:${friendId}`).emit('presence:update', {

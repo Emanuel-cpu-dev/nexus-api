@@ -8,22 +8,32 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
-import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.socket.client.IO;
@@ -41,8 +51,21 @@ public class NexusMessagingService extends Service {
     private static final String CH_CALLS = "nexus_calls_v2";
     private static final String CH_MESSAGES_SILENT = "nexus_messages_silent";
     private static final String CH_CALLS_SILENT = "nexus_calls_silent";
+    private static final String CH_UPDATES = "nexus_updates";
+    private static final String ACTION_UPDATE = "com.nexus.app.UPDATE";
+    private static final int UPDATE_NOTIFICATION_ID = 4000;
+    private static final long UPDATE_INTERVAL = 15 * 60 * 1000;
 
     private final AtomicInteger notificationId = new AtomicInteger(2000);
+    private final Map<String, Integer> callNotifications = new ConcurrentHashMap<>();
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable updateCheck = new Runnable() {
+        @Override
+        public void run() {
+            checkUpdate();
+            handler.postDelayed(this, UPDATE_INTERVAL);
+        }
+    };
     private Socket socket;
     private String currentToken = "";
     private String currentUrl = "";
@@ -56,6 +79,14 @@ public class NexusMessagingService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_UPDATE.equals(intent.getAction())) {
+            long version = intent.getLongExtra("versionCode", 0);
+            if (version > installedVersion()) {
+                showUpdateNotification(
+                        intent.getStringExtra("versionName"),
+                        intent.getStringExtra("notes"));
+            }
+        }
         String token = NexusPrefs.token(this);
         String url = NexusPrefs.serverUrl(this);
         if (NexusPrefs.hasToken(this) && token != null && url != null && !url.isEmpty()) {
@@ -66,6 +97,7 @@ public class NexusMessagingService extends Service {
             currentToken = "";
             currentUrl = "";
         }
+        scheduleUpdateCheck();
         return START_STICKY;
     }
 
@@ -76,6 +108,7 @@ public class NexusMessagingService extends Service {
 
     @Override
     public void onDestroy() {
+        handler.removeCallbacks(updateCheck);
         if (socket != null) socket.disconnect();
         socket = null;
         super.onDestroy();
@@ -96,6 +129,8 @@ public class NexusMessagingService extends Service {
             socket = IO.socket(url, options);
             socket.on("dm:message", args -> onMessage(args));
             socket.on("call:invite", args -> onCall(args));
+            socket.on("call:ready", args -> onCallReady(args));
+            socket.on("call:ended", args -> onCallEnded(args));
             socket.on("friend:request", args -> onFriendRequest(args));
             socket.connect();
         } catch (Exception error) {
@@ -137,8 +172,15 @@ public class NexusMessagingService extends Service {
         callsSilent.setSound(null, null);
         callsSilent.enableVibration(false);
 
+        NotificationChannel updates = new NotificationChannel(
+                CH_UPDATES, "Actualizaciones obligatorias", NotificationManager.IMPORTANCE_HIGH);
+        updates.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION),
+                audioAttributes(AudioAttributes.USAGE_NOTIFICATION));
+        updates.enableVibration(true);
+        updates.setVibrationPattern(new long[]{0, 200, 120, 200});
+
         manager.createNotificationChannels(Arrays.asList(
-                foreground, messages, calls, messagesSilent, callsSilent));
+                foreground, messages, calls, messagesSilent, callsSilent, updates));
     }
 
     private Notification foregroundNotification() {
@@ -171,6 +213,15 @@ public class NexusMessagingService extends Service {
     private void onMessage(Object[] args) {
         try {
             JSONObject payload = (JSONObject) args[0];
+            if (payload.optBoolean("updateNotice")) {
+                long version = payload.optLong("versionCode", 0);
+                if (version > installedVersion()) {
+                    handler.post(() -> showUpdateNotification(
+                            payload.optString("versionName", ""),
+                            payload.optString("notes", "")));
+                }
+                return;
+            }
             JSONObject message = payload.optJSONObject("message");
             if (message == null) return;
             String from = message.optString("fromId", "");
@@ -183,14 +234,15 @@ public class NexusMessagingService extends Service {
             if (text.isEmpty()) text = "Nuevo mensaje";
 
             boolean quiet = silent();
+            int id = notificationId.getAndIncrement();
             NotificationCompat.Builder builder = base(
-                    quiet ? CH_MESSAGES_SILENT : CH_MESSAGES, name, text, openApp(from, null, 1));
+                    quiet ? CH_MESSAGES_SILENT : CH_MESSAGES, name, text, openApp(from, null, id));
             builder.setCategory(Notification.CATEGORY_MESSAGE);
             if (!quiet) {
-                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION), AudioManager.STREAM_NOTIFICATION);
+                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION));
                 builder.setVibrate(new long[]{0, 180, 120, 180});
             }
-            show(notificationId.getAndIncrement(), builder.build());
+            show(id, builder.build());
         } catch (Exception ignored) {
             // Un paquete malformado no debe tumbar el servicio.
         }
@@ -208,21 +260,150 @@ public class NexusMessagingService extends Service {
                     : "Te está llamando";
 
             boolean quiet = silent();
+            int id = notificationId.getAndIncrement();
             NotificationCompat.Builder builder = base(
                     quiet ? CH_CALLS_SILENT : CH_CALLS,
-                    "Llamada entrante · " + name, body, openApp(null, callId, 2));
+                    "Llamada entrante · " + name, body, openApp(null, callId, id));
             builder.setCategory(Notification.CATEGORY_CALL);
             builder.setPriority(NotificationCompat.PRIORITY_MAX);
             builder.setOngoing(false);
             if (!quiet) {
-                builder.setSound(defaultSound(RingtoneManager.TYPE_RINGTONE), AudioManager.STREAM_RING);
+                builder.setSound(defaultSound(RingtoneManager.TYPE_RINGTONE));
                 builder.setVibrate(new long[]{0, 500, 250, 500});
-                builder.setFullScreenIntent(openApp(null, callId, 3), true);
+                builder.setFullScreenIntent(openApp(null, callId, id + 100000), true);
             }
-            show(notificationId.getAndIncrement(), builder.build());
+            if (!callId.isEmpty()) callNotifications.put(callId, id);
+            show(id, builder.build());
         } catch (Exception ignored) {
             // Ignorar.
         }
+    }
+
+    // Al aceptar, el timbre debe parar aunque la app esté en segundo plano.
+    private void onCallReady(Object[] args) {
+        try {
+            JSONObject payload = (JSONObject) args[0];
+            String callId = payload.optString("callId", "");
+            JSONArray peers = payload.optJSONArray("peers");
+            String myId = NexusPrefs.userId(this);
+            boolean accepted = false;
+            if (peers != null) {
+                for (int i = 0; i < peers.length(); i += 1) {
+                    if (myId != null && myId.equals(peers.optString(i, ""))) accepted = true;
+                }
+            }
+            if (accepted) cancelCall(callId);
+        } catch (Exception ignored) {
+            // Ignorar.
+        }
+    }
+
+    // Colgar o cancelar la llamada también apaga el timbre en el celular.
+    private void onCallEnded(Object[] args) {
+        try {
+            JSONObject payload = (JSONObject) args[0];
+            cancelCall(payload.optString("callId", ""));
+        } catch (Exception ignored) {
+            // Ignorar.
+        }
+    }
+
+    private void cancelCall(String callId) {
+        if (callId == null || callId.isEmpty()) return;
+        Integer id = callNotifications.remove(callId);
+        if (id != null) NotificationManagerCompat.from(this).cancel(id);
+    }
+
+    // Aviso de actualización obligatoria: se consulta a Render aunque la app esté cerrada.
+    private void scheduleUpdateCheck() {
+        handler.removeCallbacks(updateCheck);
+        handler.post(updateCheck);
+    }
+
+    private void checkUpdate() {
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                String server = NexusPrefs.serverUrl(this);
+                if (server == null || server.isEmpty()) return;
+                URL endpoint = new URL(server.replaceAll("/+$", "") + "/api/app-version");
+                connection = (HttpURLConnection) endpoint.openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                connection.setUseCaches(false);
+                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return;
+
+                StringBuilder body = new StringBuilder();
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line);
+                reader.close();
+
+                JSONObject remote = new JSONObject(body.toString());
+                long version = remote.optLong("versionCode", 0);
+                if (!remote.optBoolean("force", false) || version <= installedVersion()) {
+                    handler.post(() -> NotificationManagerCompat.from(this).cancel(UPDATE_NOTIFICATION_ID));
+                    return;
+                }
+                String name = remote.optString("versionName", "");
+                String notes = remote.optString("notes", "");
+                handler.post(() -> showUpdateNotification(name, notes));
+            } catch (Exception ignored) {
+                // Sin red no hay aviso; se reintenta en el próximo ciclo.
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
+    }
+
+    private long installedVersion() {
+        return installedVersion(this);
+    }
+
+    private static long installedVersion(Context context) {
+        try {
+            PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                    ? info.getLongVersionCode() : info.versionCode;
+        } catch (PackageManager.NameNotFoundException error) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    // La interfaz puede pedir el aviso apenas detecta la versión obligatoria.
+    static void showUpdate(Context context, long version, String versionName, String notes) {
+        if (version <= 0 || version <= installedVersion(context)) return;
+        Intent intent = new Intent(context, NexusMessagingService.class);
+        intent.setAction(ACTION_UPDATE);
+        intent.putExtra("versionCode", version);
+        intent.putExtra("versionName", versionName);
+        intent.putExtra("notes", notes);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ContextCompat.startForegroundService(context, intent);
+        } else {
+            context.startService(intent);
+        }
+    }
+
+    private void showUpdateNotification(String versionName, String notes) {
+        if (versionName == null) versionName = "";
+        if (notes == null) notes = "";
+        String detail = "Nexus " + versionName + " está listo. Abrí la app y tocá Actualizar.";
+        if (!notes.isEmpty()) detail = notes + " Abrí la app y tocá Actualizar.";
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CH_UPDATES)
+                .setContentTitle("⬆️ Actualización obligatoria de Nexus")
+                .setContentText(detail)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(detail))
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentIntent(openApp(null, null, 5000))
+                .setCategory(Notification.CATEGORY_RECOMMENDATION)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION))
+                .setVibrate(new long[]{0, 200, 120, 200});
+        show(UPDATE_NOTIFICATION_ID, builder.build());
     }
 
     private void onFriendRequest(Object[] args) {
@@ -232,13 +413,14 @@ public class NexusMessagingService extends Service {
             String name = from != null ? from.optString("displayName", "") : "";
             if (name.isEmpty()) name = "Alguien";
             boolean quiet = silent();
+            int id = notificationId.getAndIncrement();
             NotificationCompat.Builder builder = base(
                     quiet ? CH_MESSAGES_SILENT : CH_MESSAGES,
-                    "Solicitud de amistad", name + " quiere ser tu amigo", openApp(null, null, 4));
+                    "Solicitud de amistad", name + " quiere ser tu amigo", openApp(null, null, id));
             if (!quiet) {
-                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION), AudioManager.STREAM_NOTIFICATION);
+                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION));
             }
-            show(notificationId.getAndIncrement(), builder.build());
+            show(id, builder.build());
         } catch (Exception ignored) {
             // Ignorar.
         }

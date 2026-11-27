@@ -18,9 +18,13 @@ function dotClass(friend) {
 }
 
 export default function Sidebar({
-  me, view, changeView, friends, activeChat, onDm, onLogout,
+  me, view, changeView, friends, activeChat, unread = {}, onDm, onLogout,
   status, onStatus, soundOn, onToggleSound
 }) {
+  const messageUnread = Object.entries(unread).reduce((total, [key, count]) => (
+    key.startsWith('community:') ? total : total + Number(count || 0)
+  ), 0);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
@@ -43,6 +47,9 @@ export default function Sidebar({
             <span className="nav-icon">{item.icon}</span>
             <span className="nav-label nav-label-full">{item.label}</span>
             <span className="nav-label nav-label-short">{item.short || item.label}</span>
+            {item.id === 'messages' && messageUnread > 0 && (
+              <span className="nav-badge">{messageUnread > 99 ? '99+' : messageUnread}</span>
+            )}
           </button>
         ))}
       </nav>
@@ -62,6 +69,7 @@ export default function Sidebar({
               <Avatar user={friend} size="xs" />
               <span className="dm-name">{friend.displayName}</span>
               <span className={`presence-dot ${dotClass(friend)}`} />
+              {unread[friend.id] > 0 && <span className="dm-badge">{unread[friend.id]}</span>}
             </button>
           ))}
         </div>

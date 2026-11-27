@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**: se toca y ella misma descarga e instala la versión nueva. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés la versión 1.2 o 1.3 instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.4. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés la versión 1.2, 1.3 o 1.4 instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.5. Además, el celular recibe una **notificación de actualización obligatoria** aunque la app esté cerrada; al tocarla abre Nexus directamente en el aviso. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -32,7 +32,7 @@ Si ya tenés la versión 1.2 o 1.3 instalada, no necesitás el link: al abrir Ne
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Ver juntos, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.4.
+- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.5. La actualización 1.5 es obligatoria y también se avisa con una notificación del celular.
 - ✅ Si la foto de perfil se perdió en un deploy anterior, volvela a subir una vez en **Mi perfil**; desde ahora queda guardada en la base.
 - ❌ **Compartir pantalla** no está disponible en el WebView de Android; la app muestra un aviso claro. Para compartir pantalla se usa la versión de escritorio.
 

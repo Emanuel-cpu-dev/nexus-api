@@ -29,70 +29,99 @@ export default function Settings({ onLogout, status, onStatus, soundOn, onToggle
   }
 
   return (
-    <div className="page">
+    <div className="page settings-page">
       <h2>Configuración</h2>
-      <form className={`card stack-form ${isOwner ? '' : 'settings-locked'}`} onSubmit={save}>
-        <h3>Servidor y llamadas {isOwner ? '' : '🔒'}</h3>
-        {!isOwner && <small className="hint">Estas opciones solo las puede cambiar el dueño de Nexus.</small>}
-        <label>
-          URL del servidor
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            readOnly={!isOwner || isServerUrlAutomatic()}
-            disabled={!isOwner}
-            spellCheck={false}
-          />
-        </label>
-        <small className="hint">
-          {isServerUrlAutomatic()
-            ? 'La interfaz se actualiza sola desde Render y se conecta automáticamente a ese servidor. No hace falta cambiar esta URL.'
-            : 'Usa la URL de Render (https://…onrender.com) para conectarte con tus amigos desde cualquier PC. Solo localhost funciona en esta máquina.'}
-        </small>
 
-        <label>
-          TURN (opcional, JSON)
-          <textarea
-            value={turn}
-            onChange={(e) => setTurn(e.target.value)}
-            rows={4}
-            disabled={!isOwner}
-            placeholder={'{"urls":"turn:servidor:3478","username":"user","credential":"pass"}'}
-          />
-        </label>
-        <small className="hint">
-          Las llamadas usan STUN de Google. Si estás detrás de un firewall estricto, añade un servidor TURN
-          en formato JSON (por ejemplo de Twilio). El servidor solo relaya la señalización: el audio y video van
-          directamente entre participantes (WebRTC).
-        </small>
-        {message && <div className="ok-box">{message}</div>}
-        <button type="submit" className="primary" disabled={!isOwner || isServerUrlAutomatic()}>
-          {isOwner ? 'Guardar' : 'Solo el dueño puede guardar'}
-        </button>
+      <form className={`card settings-card ${isOwner ? '' : 'settings-locked'}`} onSubmit={save}>
+        <div className="settings-card-head">
+          <div className="settings-icon">🛠️</div>
+          <div className="grow">
+            <h3>Servidor y llamadas</h3>
+            <p className="tiny muted">Conexión y red de videollamadas</p>
+          </div>
+          {!isOwner && <span className="tiny muted">🔒 Solo el dueño</span>}
+        </div>
+        <div className="settings-body">
+          {!isOwner && (
+            <div className="lock-note">🔒 Estas opciones solo las puede cambiar el dueño de Nexus.</div>
+          )}
+          <label className="settings-field">
+            URL del servidor
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              readOnly={!isOwner || isServerUrlAutomatic()}
+              disabled={!isOwner}
+              spellCheck={false}
+            />
+          </label>
+          <p className="tiny muted hint">
+            {isServerUrlAutomatic()
+              ? 'La interfaz se actualiza sola desde Render y se conecta automáticamente. No hace falta cambiar esta URL.'
+              : 'Usa la URL de Render (https://…onrender.com) para conectarte desde cualquier PC.'}
+          </p>
+          <label className="settings-field">
+            TURN (opcional, JSON)
+            <textarea
+              value={turn}
+              onChange={(e) => setTurn(e.target.value)}
+              rows={4}
+              disabled={!isOwner}
+              placeholder={'{"urls":"turn:servidor:3478","username":"user","credential":"pass"}'}
+            />
+          </label>
+          <p className="tiny muted hint">
+            Las llamadas usan STUN de Google. Si estás detrás de un firewall estricto, agregá un servidor TURN.
+          </p>
+          {message && <div className="ok-box">{message}</div>}
+        </div>
+        <div className="settings-footer">
+          <button type="submit" className="primary" disabled={!isOwner || isServerUrlAutomatic()}>
+            {isOwner ? 'Guardar cambios' : 'Solo el dueño puede guardar'}
+          </button>
+        </div>
       </form>
 
-      <div className="card">
-        <h3>Notificaciones y estado</h3>
-        <label className="settings-check">
-          <input type="checkbox" checked={soundOn} onChange={onToggleSound} />
-          Sonido al recibir mensajes o llamadas
-        </label>
-        <small className="hint">También podés silenciar rápido desde el ícono 🔔 al pie del menú.</small>
-        <label className="settings-field">
-          Mi estado
-          <select value={status} onChange={(event) => onStatus(event.target.value)}>
-            {STATUSES.map((item) => (
-              <option key={item.id} value={item.id}>{item.icon} {item.label}</option>
-            ))}
-          </select>
-        </label>
-        <small className="hint">Ocupado y Durmiendo no muestran avisos emergentes ni suenan. Tus amigos ven el estado al costado de tu nombre.</small>
-      </div>
+      <section className="card settings-card">
+        <div className="settings-card-head">
+          <div className="settings-icon">🔔</div>
+          <div className="grow">
+            <h3>Notificaciones y estado</h3>
+            <p className="tiny muted">Avisos de mensajes y llamadas</p>
+          </div>
+        </div>
+        <div className="settings-body">
+          <label className="settings-check">
+            <input type="checkbox" checked={soundOn} onChange={onToggleSound} />
+            Sonido al recibir mensajes o llamadas
+          </label>
+          <p className="tiny muted hint">También podés silenciar rápido desde el ícono 🔔 al pie del menú.</p>
+          <label className="settings-field">
+            Mi estado
+            <select value={status} onChange={(event) => onStatus(event.target.value)}>
+              {STATUSES.map((item) => (
+                <option key={item.id} value={item.id}>{item.icon} {item.label}</option>
+              ))}
+            </select>
+          </label>
+          <p className="tiny muted hint">
+            Ocupado y Durmiendo no muestran avisos emergentes ni suenan. Tus amigos ven el estado al costado de tu nombre.
+          </p>
+        </div>
+      </section>
 
-      <div className="card">
-        <h3>Sesión</h3>
-        <button type="button" className="danger" onClick={onLogout}>Cerrar sesión</button>
-      </div>
+      <section className="card settings-card">
+        <div className="settings-card-head">
+          <div className="settings-icon">🚪</div>
+          <div className="grow">
+            <h3>Sesión</h3>
+            <p className="tiny muted">Cerrar la sesión actual</p>
+          </div>
+        </div>
+        <div className="settings-footer">
+          <button type="button" className="danger" onClick={onLogout}>Cerrar sesión</button>
+        </div>
+      </section>
     </div>
   );
 }

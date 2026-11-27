@@ -9,6 +9,7 @@ export default function Profile({ me, onUpdated }) {
   const [bio, setBio] = useState(me?.bio || '');
   const [avatarColor, setAvatarColor] = useState(me?.avatarColor || COLORS[0]);
   const [avatarUrl, setAvatarUrl] = useState(me?.avatarUrl || '');
+  const [privateProfile, setPrivateProfile] = useState(Boolean(me?.isPrivate));
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -18,6 +19,7 @@ export default function Profile({ me, onUpdated }) {
     setBio(me?.bio || '');
     setAvatarColor(me?.avatarColor || COLORS[0]);
     setAvatarUrl(me?.avatarUrl || '');
+    setPrivateProfile(Boolean(me?.isPrivate));
   }, [me?.id]);
 
   async function save(event) {
@@ -27,7 +29,7 @@ export default function Profile({ me, onUpdated }) {
     try {
       const data = await api('/me', {
         method: 'PATCH',
-        body: { displayName: displayName.trim(), bio: bio.trim(), avatarColor, avatarUrl }
+        body: { displayName: displayName.trim(), bio: bio.trim(), avatarColor, avatarUrl, profilePrivate: privateProfile }
       });
       onUpdated(data.user);
       setMessage('Perfil actualizado.');
@@ -96,6 +98,13 @@ export default function Profile({ me, onUpdated }) {
           <label>
             Biografía
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={300} />
+          </label>
+          <label className="settings-field">
+            Visibilidad del perfil
+            <select value={privateProfile ? 'private' : 'public'} onChange={(e) => setPrivateProfile(e.target.value === 'private')}>
+              <option value="public">🌐 Público — cualquiera puede ver tus publicaciones</option>
+              <option value="private">🔒 Privado — solo tus amigos ven tus publicaciones</option>
+            </select>
           </label>
           <div>
             <span className="tiny muted block">Color del avatar</span>

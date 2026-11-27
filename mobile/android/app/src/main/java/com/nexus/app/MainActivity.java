@@ -3,6 +3,7 @@ package com.nexus.app;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -29,19 +30,27 @@ public class MainActivity extends BridgeActivity {
         // El tamaño de letra del sistema no debe agrandar la interfaz dentro de la app.
         getBridge().getWebView().getSettings().setTextZoom(100);
 
-        // Android dibuja el WebView debajo de barras y gestos. Reservamos ese espacio
-        // para que la hora/batería y los botones del sistema no tapen el menú inferior.
+        // Reservamos las barras del sistema en el WebView real. Capacitor usa un
+        // CoordinatorLayout que puede consumir los insets antes de que lleguen al
+        // WebView, por eso escuchamos en la raíz y aplicamos el padding nosotros.
+        // Así los botones táctiles/gestos de Android nunca tapan el menú inferior.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(Color.parseColor("#0d0e14"));
+        getWindow().setNavigationBarColor(Color.parseColor("#0d0e14"));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarDividerColor(Color.parseColor("#0d0e14"));
+        }
+        View decor = getWindow().getDecorView();
         View webView = getBridge().getWebView();
         int mask = WindowInsetsCompat.Type.systemBars()
-                | WindowInsetsCompat.Type.navigationBars()
                 | WindowInsetsCompat.Type.systemGestures()
                 | WindowInsetsCompat.Type.displayCutout();
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(decor, (view, insets) -> {
             androidx.core.graphics.Insets bars = insets.getInsets(mask);
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
+            webView.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return WindowInsetsCompat.CONSUMED;
         });
+        ViewCompat.requestApplyInsets(decor);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
