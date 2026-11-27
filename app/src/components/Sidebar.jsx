@@ -1,4 +1,5 @@
 import Avatar from './Avatar.jsx';
+import { STATUSES } from '../preferences.js';
 
 const NAV = [
   { id: 'home', icon: '🏠', label: 'Inicio' },
@@ -10,7 +11,16 @@ const NAV = [
   { id: 'settings', icon: '⚙️', label: 'Configuración' }
 ];
 
-export default function Sidebar({ me, view, changeView, friends, activeChat, onDm, onLogout }) {
+function dotClass(friend) {
+  if (!friend.online) return '';
+  if (!friend.status || friend.status === 'active') return 'online';
+  return friend.status;
+}
+
+export default function Sidebar({
+  me, view, changeView, friends, activeChat, onDm, onLogout,
+  status, onStatus, soundOn, onToggleSound
+}) {
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
@@ -45,10 +55,11 @@ export default function Sidebar({ me, view, changeView, friends, activeChat, onD
               key={friend.id}
               className={`dm-item ${activeChat?.userId === friend.id && view === 'messages' ? 'active' : ''}`}
               onClick={() => onDm(friend)}
+              title={friend.online ? `En línea (${STATUSES.find((s) => s.id === friend.status)?.label || 'Activo'})` : 'Desconectado'}
             >
               <Avatar user={friend} size="xs" />
               <span className="dm-name">{friend.displayName}</span>
-              <span className={`presence-dot ${friend.online ? 'online' : ''}`} />
+              <span className={`presence-dot ${dotClass(friend)}`} />
             </button>
           ))}
         </div>
@@ -63,6 +74,27 @@ export default function Sidebar({ me, view, changeView, friends, activeChat, onD
         <button type="button" className="icon-btn" title="Cerrar sesión" onClick={onLogout}>
           ⏻
         </button>
+        <div className="presence-controls">
+          <select
+            className="status-select"
+            value={status}
+            onChange={(event) => onStatus(event.target.value)}
+            title="Mi estado"
+            aria-label="Mi estado"
+          >
+            {STATUSES.map((item) => (
+              <option key={item.id} value={item.id}>{item.icon} {item.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="icon-btn"
+            title={soundOn ? 'Silenciar avisos' : 'Activar sonido de avisos'}
+            onClick={onToggleSound}
+          >
+            {soundOn ? '🔔' : '🔕'}
+          </button>
+        </div>
       </div>
     </aside>
   );

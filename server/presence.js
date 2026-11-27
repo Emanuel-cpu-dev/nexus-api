@@ -1,7 +1,16 @@
 export const onlineUsers = new Map();
+export const userStatuses = new Map();
 
 export function isOnline(userId) {
   return (onlineUsers.get(userId)?.size || 0) > 0;
+}
+
+export function setStatus(userId, status) {
+  userStatuses.set(userId, status);
+}
+
+export function getStatus(userId) {
+  return userStatuses.get(userId) || 'active';
 }
 
 export function addSocket(userId, socketId) {

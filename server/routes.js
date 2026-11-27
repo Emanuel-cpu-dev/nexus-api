@@ -3,7 +3,7 @@ import multer from 'multer';
 import { mkdirSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { authRequired } from './auth.js';
-import { isOnline, onlineUsers } from './presence.js';
+import { isOnline, onlineUsers, getStatus } from './presence.js';
 import {
   db,
   uid,
@@ -129,7 +129,11 @@ export function createRoutes(io) {
 
     return res.json({
       user: publicUser(req.user),
-      friends: friendsOf(id).map((u) => ({ ...publicUser(u), online: isOnline(u.id) })),
+      friends: friendsOf(id).map((u) => ({
+        ...publicUser(u),
+        online: isOnline(u.id),
+        status: getStatus(u.id)
+      })),
       incoming,
       outgoing,
       communities: communitiesFor(id),
@@ -176,7 +180,7 @@ export function createRoutes(io) {
     const user = getUserById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
     return res.json({
-      user: { ...publicUser(user), online: isOnline(user.id) },
+      user: { ...publicUser(user), online: isOnline(user.id), status: getStatus(user.id) },
       posts: postsByUser(user.id, req.user.id)
     });
   });
@@ -246,7 +250,15 @@ export function createRoutes(io) {
     const room = dmRoom(req.user.id, other.id);
     const profile = publicUser(other);
     return res.json({
-      chat: { type: 'dm', id: room, userId: other.id, name: profile.displayName, user: profile, online: isOnline(other.id) },
+      chat: {
+        type: 'dm',
+        id: room,
+        userId: other.id,
+        name: profile.displayName,
+        user: { ...profile, online: isOnline(other.id), status: getStatus(other.id) },
+        online: isOnline(other.id),
+        status: getStatus(other.id)
+      },
       messages: messagesFor(room, 150)
     });
   });

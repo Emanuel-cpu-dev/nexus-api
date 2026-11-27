@@ -13,6 +13,40 @@ import CallOverlay from './components/CallOverlay.jsx';
 import Cine from './components/Cine.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
+import { playSound, unlockSound } from './sound.js';
+import {
+  getMyStatus, setMyStatus, getSoundEnabled, setSoundEnabled, isQuietStatus
+} from './preferences.js';
+
+function ToastStack({ toasts }) {
+  if (!toasts.length) return null;
+  return (
+    <div className="toast-stack">
+      {toasts.map((item) => (
+        <div
+          key={item.id}
+          className={`toast ${item.title ? 'notification' : ''}`}
+          role={item.onClick ? 'button' : undefined}
+          tabIndex={item.onClick ? 0 : undefined}
+          onClick={item.onClick}
+          onKeyDown={item.onClick ? (event) => {
+            if (event.key === 'Enter' || event.key === ' ') item.onClick();
+          } : undefined}
+        >
+          {item.title ? (
+            <>
+              <div className="toast-head">
+                <span className="toast-icon">{item.icon || '🔔'}</span>
+                <strong>{item.title}</strong>
+              </div>
+              {item.body && <div className="toast-body">{item.body}</div>}
+            </>
+          ) : item.message}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('nexus_token'));
@@ -30,11 +64,39 @@ export default function App() {
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [loading, setLoading] = useState(Boolean(token));
+  const [myStatus, setStatusState] = useState(getMyStatus);
+  const [soundOn, setSoundState] = useState(getSoundEnabled);
 
-  const toast = useCallback((message) => {
+  const toast = useCallback((entry) => {
+    const item = typeof entry === 'string' ? { message: entry } : entry;
     const id = `${Date.now()}-${Math.random()}`;
-    setToasts((current) => [...current, { id, message }]);
-    setTimeout(() => setToasts((current) => current.filter((item) => item.id !== id)), 4200);
+    setToasts((current) => [...current, { ...item, id }]);
+    setTimeout(
+      () => setToasts((current) => current.filter((toastItem) => toastItem.id !== id)),
+      item.duration || (item.title ? 6000 : 4200)
+    );
+  }, []);
+
+  const notify = useCallback((entry, soundKind) => {
+    if (isQuietStatus(myStatus)) return;
+    toast(entry);
+    if (soundOn && soundKind) {
+      try { playSound(soundKind); } catch { /* el audio es opcional */ }
+    }
+  }, [toast, myStatus, soundOn]);
+
+  const changeStatus = useCallback((next) => {
+    setMyStatus(next);
+    setStatusState(next);
+    getSocket()?.emit('presence:status', { status: next });
+  }, []);
+
+  const toggleSound = useCallback(() => {
+    setSoundState((current) => {
+      const next = !current;
+      setSoundEnabled(next);
+      return next;
+    });
   }, []);
 
   const logout = useCallback(() => {
@@ -96,13 +158,39 @@ export default function App() {
   }, [token, toast, logout]);
 
   useEffect(() => {
+    const unlock = () => {
+      unlockSound();
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    const socket = getSocket();
+    if (!socket) return undefined;
+    const send = () => socket.emit('presence:status', { status: myStatus });
+    send();
+    socket.on('connect', send);
+    return () => socket.off('connect', send);
+  }, [token, myStatus]);
+
+  useEffect(() => {
     const socket = getSocket();
     if (!socket || !me?.id) return undefined;
 
     function onPresence(payload) {
       if (!payload?.userId) return;
       setFriends((current) => current.map((friend) => (
-        friend.id === payload.userId ? { ...friend, online: payload.online } : friend
+        friend.id === payload.userId
+          ? { ...friend, online: payload.online, status: payload.status || friend.status }
+          : friend
       )));
     }
     function onFriendRequest(payload) {
@@ -118,10 +206,21 @@ export default function App() {
       if (!message || message.fromId === me.id) return;
       const room = `dm:${[me.id, message.fromId].sort().join(':')}`;
       if (activeChat?.id !== room) {
-        toast(`💬 ${message.author?.displayName || 'Nuevo mensaje'}: ${message.text || 'archivo adjunto'}`);
+        const friend = friends.find((item) => item.id === message.fromId);
+        notify({
+          icon: '💬',
+          title: message.author?.displayName || 'Nuevo mensaje',
+          body: message.text || '📎 Archivo adjunto',
+          onClick: friend ? () => openDm(friend) : undefined
+        }, 'message');
       }
     }
     function onCallInvite(payload) {
+      notify({
+        icon: '📹',
+        title: 'Llamada entrante',
+        body: `${payload?.from?.displayName || 'Un amigo'} te está llamando`
+      }, 'call');
       setCall((current) => current || {
         status: 'incoming',
         callId: payload?.callId,
@@ -160,7 +259,7 @@ export default function App() {
       socket.off('call:rejected', onCallRejected);
       socket.off('call:ended', onCallEnded);
     };
-  }, [me?.id, activeChat?.id, load, toast]);
+  }, [me?.id, activeChat?.id, load, notify, friends]);
 
   const changeView = useCallback((next) => {
     // Al entrar a "Ver juntos" desde el menú sin objetivo, usar la sala general.
@@ -272,7 +371,7 @@ export default function App() {
           setToken(localStorage.getItem('nexus_token'));
           toast(`¡Bienvenido, ${user.displayName}!`);
         }} />
-        {toasts.length > 0 && <div className="toast-stack">{toasts.map((item) => <div className="toast" key={item.id}>{item.message}</div>)}</div>}
+        <ToastStack toasts={toasts} />
       </>
     );
   }
@@ -291,6 +390,10 @@ export default function App() {
         activeChat={activeChat}
         onDm={openDm}
         onLogout={logout}
+        status={myStatus}
+        onStatus={changeStatus}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
       />
 
       <main className="content">
@@ -405,7 +508,15 @@ export default function App() {
           />
         )}
 
-        {view === 'settings' && <Settings onLogout={logout} />}
+        {view === 'settings' && (
+          <Settings
+            onLogout={logout}
+            status={myStatus}
+            onStatus={changeStatus}
+            soundOn={soundOn}
+            onToggleSound={toggleSound}
+          />
+        )}
       </main>
 
       {call && (
@@ -417,11 +528,7 @@ export default function App() {
         />
       )}
 
-      {toasts.length > 0 && (
-        <div className="toast-stack">
-          {toasts.map((item) => <div className="toast" key={item.id}>{item.message}</div>)}
-        </div>
-      )}
+      <ToastStack toasts={toasts} />
     </div>
   );
 }

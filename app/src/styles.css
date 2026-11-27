@@ -209,7 +209,12 @@ p { margin: 6px 0 12px; }
 .dm-item.wide { border: 1px solid transparent; }
 .dm-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.sidebar-foot { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 12px 6px 0; border-top: 1px solid var(--line); }
+.sidebar-foot { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 12px 6px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.presence-controls { display: flex; align-items: center; gap: 6px; width: 100%; }
+.status-select { flex: 1; min-width: 0; background: var(--card-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 7px; font-size: 11px; }
+.settings-check { flex-direction: row !important; align-items: center; gap: 9px !important; color: var(--text) !important; font-size: 13px !important; cursor: pointer; }
+.settings-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.settings-field select { background: var(--card-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px; }
 
 .presence-dot {
   width: 9px;
@@ -220,6 +225,9 @@ p { margin: 6px 0 12px; }
   border: 2px solid var(--bg-2);
 }
 .presence-dot.online { background: var(--green); }
+.presence-dot.idle { background: #f0b232; }
+.presence-dot.dnd { background: var(--danger); }
+.presence-dot.sleep { background: #6f7bb3; }
 .presence-dot.inline { display: inline-block; margin-right: 5px; border: none; vertical-align: middle; }
 
 .avatar {
@@ -362,6 +370,11 @@ p { margin: 6px 0 12px; }
 /* ---------- Toasts ---------- */
 .toast-stack { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 90; }
 .toast { background: #252941; border: 1px solid var(--line); border-radius: 10px; padding: 11px 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); animation: slideIn .2s ease-out; max-width: 360px; }
+.toast.notification { border-left: 3px solid var(--accent); cursor: pointer; }
+.toast.notification:hover { background: #2c3150; }
+.toast-head { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.toast-icon { font-size: 18px; }
+.toast-body { margin: 5px 0 0 27px; color: var(--muted); font-size: 12px; line-height: 1.4; max-height: 54px; overflow: hidden; }
 
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }

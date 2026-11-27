@@ -13,7 +13,7 @@ import {
   uid,
   now
 } from './db.js';
-import { addSocket, removeSocket, onlineUsers } from './presence.js';
+import { addSocket, removeSocket, onlineUsers, isOnline, getStatus, setStatus } from './presence.js';
 
 export function setupSocket(io) {
   const calls = new Map();
@@ -62,11 +62,29 @@ export function setupSocket(io) {
     socket.join(`user:${myId}`);
 
     for (const friendId of friendIds(myId)) {
-      io.to(`user:${friendId}`).emit('presence:update', { userId: myId, online: true });
+      io.to(`user:${friendId}`).emit('presence:update', {
+        userId: myId,
+        online: isOnline(myId),
+        status: getStatus(myId)
+      });
     }
     for (const communityId of communityIdsFor(myId)) {
       socket.join(`community:${communityId}`);
     }
+
+    socket.on('presence:status', (payload, callback) => {
+      const allowed = new Set(['active', 'idle', 'dnd', 'sleep']);
+      const status = allowed.has(payload?.status) ? payload.status : 'active';
+      setStatus(myId, status);
+      for (const friendId of friendIds(myId)) {
+        io.to(`user:${friendId}`).emit('presence:update', {
+          userId: myId,
+          online: isOnline(myId),
+          status
+        });
+      }
+      if (typeof callback === 'function') callback(null, { status });
+    });
 
     socket.on('dm:send', (payload, callback) => {
       const to = payload?.to || payload?.userId;
@@ -231,7 +249,11 @@ export function setupSocket(io) {
       const wentOffline = removeSocket(myId, socket.id);
       if (wentOffline) {
         for (const friendId of friendIds(myId)) {
-          io.to(`user:${friendId}`).emit('presence:update', { userId: myId, online: false });
+          io.to(`user:${friendId}`).emit('presence:update', {
+            userId: myId,
+            online: false,
+            status: getStatus(myId)
+          });
         }
       }
       for (const callId of [...calls.keys()]) {

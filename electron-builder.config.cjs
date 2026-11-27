@@ -2,6 +2,7 @@ module.exports = {
   appId: 'com.proyecto.nexus',
   productName: 'Nexus',
   copyright: 'Copyright © 2026 Nexus',
+  icon: 'nexus-violeta.ico',
   directories: { output: 'dist-electron' },
   files: ['package.json', 'electron/**/*', 'app/dist/**/*'],
   win: {

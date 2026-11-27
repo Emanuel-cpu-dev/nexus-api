@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getServerUrl, setServerUrl, isServerUrlAutomatic } from '../config.js';
+import { STATUSES } from '../preferences.js';
 
-export default function Settings({ onLogout }) {
+export default function Settings({ onLogout, status, onStatus, soundOn, onToggleSound }) {
   const [url, setUrl] = useState(getServerUrl());
   const [turn, setTurn] = useState(() => localStorage.getItem('nexus_turn') || '');
   const [message, setMessage] = useState('');
@@ -58,6 +59,24 @@ export default function Settings({ onLogout }) {
         {message && <div className="ok-box">{message}</div>}
         <button type="submit" className="primary">Guardar</button>
       </form>
+
+      <div className="card">
+        <h3>Notificaciones y estado</h3>
+        <label className="settings-check">
+          <input type="checkbox" checked={soundOn} onChange={onToggleSound} />
+          Sonido al recibir mensajes o llamadas
+        </label>
+        <small className="hint">También podés silenciar rápido desde el ícono 🔔 al pie del menú.</small>
+        <label className="settings-field">
+          Mi estado
+          <select value={status} onChange={(event) => onStatus(event.target.value)}>
+            {STATUSES.map((item) => (
+              <option key={item.id} value={item.id}>{item.icon} {item.label}</option>
+            ))}
+          </select>
+        </label>
+        <small className="hint">Ocupado y Durmiendo no muestran avisos emergentes ni suenan. Tus amigos ven el estado al costado de tu nombre.</small>
+      </div>
 
       <div className="card">
         <h3>Sesión</h3>
