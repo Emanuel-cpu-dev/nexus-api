@@ -7,12 +7,11 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowManager;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -31,31 +30,22 @@ public class MainActivity extends BridgeActivity {
         // El tamaño de letra del sistema no debe agrandar la interfaz dentro de la app.
         getBridge().getWebView().getSettings().setTextZoom(100);
 
-        // Reservamos las barras del sistema en el WebView real. Capacitor usa un
-        // CoordinatorLayout que puede consumir los insets antes de que lleguen al
-        // WebView, por eso escuchamos en la raíz y aplicamos el padding nosotros.
-        // Así los botones táctiles/gestos de Android nunca tapan el menú inferior.
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // La app va DENTRO del área útil del celular, no por debajo de la hora,
+        // la señal, el wifi ni los 3 botones del Android. El sistema reserva ese
+        // espacio y el WebView queda como un contenedor normal.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN
+                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         getWindow().setStatusBarColor(Color.parseColor("#0d0e14"));
         getWindow().setNavigationBarColor(Color.parseColor("#0d0e14"));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             getWindow().setNavigationBarDividerColor(Color.parseColor("#0d0e14"));
         }
         View decor = getWindow().getDecorView();
-        // Las horas y los iconos del Android deben verse claros sobre el fondo oscuro.
+        // Hora, señal, wifi y botones se ven claros sobre el fondo oscuro.
         WindowCompat.getInsetsController(getWindow(), decor).setAppearanceLightStatusBars(false);
         WindowCompat.getInsetsController(getWindow(), decor).setAppearanceLightNavigationBars(false);
-        View webView = getBridge().getWebView();
-        webView.setFitsSystemWindows(false);
-        int mask = WindowInsetsCompat.Type.systemBars()
-                | WindowInsetsCompat.Type.systemGestures()
-                | WindowInsetsCompat.Type.displayCutout();
-        ViewCompat.setOnApplyWindowInsetsListener(decor, (view, insets) -> {
-            androidx.core.graphics.Insets bars = insets.getInsets(mask);
-            webView.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return WindowInsetsCompat.CONSUMED;
-        });
-        ViewCompat.requestApplyInsets(decor);
+        getBridge().getWebView().setFitsSystemWindows(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)

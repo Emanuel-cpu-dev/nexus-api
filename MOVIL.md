@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**: se toca y ella misma descarga e instala la versión nueva. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.6. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.7. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -28,14 +28,14 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 - ✅ “Recordarme”: viene activado por defecto en PC y celular; al abrir Nexus entrás solo con tu usuario. Si cerrás sesión a propósito, ahí sí se borran los datos guardados.
 - ✅ Fotos de perfil y archivos guardados dentro de SQLite: ya no desaparecen cuando Render hace un deploy.
 - ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Nexus activo” mientras el servicio sigue prendido.
-- ✅ Interfaz responsive: menú abajo, chats a pantalla completa con botón ←, tarjetas y llamadas adaptadas al celular.
+- ✅ Interfaz responsive: menú abajo, chats a pantalla completa **dentro de la app** con botón ←, tarjetas y llamadas adaptadas al celular.
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Ver juntos, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.6. La actualización 1.6 es obligatoria, no se puede cerrar y se vuelve a avisar cada minuto hasta que la app informe que ya está actualizada.
+- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.7. La actualización 1.7 es obligatoria, no se puede cerrar y se vuelve a avisar cada minuto hasta que la app informe que ya está actualizada.
 - ✅ Botón **atrás** como en Instagram/Facebook/LinkedIn: vuelve al chat, al perfil o a la pantalla anterior y recién en el **Inicio** sale de la app.
 - ✅ **Ubicación en tiempo real** en la sección 📍: un amigo te la muestra solo si te da permiso; podés pedirla, ver el mapa, revocar el acceso o dejar de compartir la tuya.
-- ✅ La hora, los iconos y los botones del Android quedan fuera del contenido: ni el menú inferior ni los títulos quedan tapados.
+- ✅ Nexus queda **dentro de un contenedor**, no en pantalla completa del sistema: la hora, la señal, el wifi y los 3 botones del Android quedan fuera de la app y no tapan ni el menú inferior ni los títulos.
 - ✅ Si la foto de perfil se perdió en un deploy anterior, volvela a subir una vez en **Mi perfil**; desde ahora queda guardada en la base.
 - ❌ **Compartir pantalla** no está disponible en el WebView de Android; la app muestra un aviso claro. Para compartir pantalla se usa la versión de escritorio.
 

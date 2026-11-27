@@ -1,7 +1,7 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
+  "versionCode": 8,
+  "versionName": "1.7",
   "force": true,
-  "notes": "OBLIGATORIA: avisos que se repiten hasta actualizar, botón atrás pantalla por pantalla, pantalla sin tapar y ubicación de amigos solo con permiso.",
+  "notes": "OBLIGATORIA: la app va dentro del área del celular, sin pantalla completa: ni la hora, el wifi ni los 3 botones tapan Nexus. Incluye avisos repetidos, atrás pantalla por pantalla y ubicación con permiso.",
   "apkUrl": "/Nexus.apk"
 }
