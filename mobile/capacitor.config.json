@@ -1,0 +1,13 @@
+{
+  "appId": "com.nexus.app",
+  "appName": "Nexus",
+  "webDir": "../app/dist",
+  "server": {
+    "url": "https://nexus-api-cdxi.onrender.com",
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

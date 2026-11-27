@@ -1,0 +1,19 @@
+{
+  "name": "nexus-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Envoltorio Android de Nexus (la interfaz se sirve desde Render)",
+  "scripts": {
+    "add": "cap add android",
+    "sync": "cap sync android",
+    "apk": "cap sync android && gradlew -p android assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0"
+  }
+}

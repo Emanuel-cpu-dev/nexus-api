@@ -10,3 +10,9 @@ app/dist/
 *.zip
 .backup-key
 .data-branch/
+.mobile-tools/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/app/keystore.properties
+mobile/android/app/nexus.keystore
