@@ -149,6 +149,8 @@ p { margin: 6px 0 12px; }
 .auth-card .brand-mark { margin: 0 auto 14px; }
 .auth-card form { text-align: left; display: flex; flex-direction: column; gap: 13px; }
 .auth-card label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.auth-card label.remember-row { flex-direction: row; align-items: center; gap: 9px; color: var(--text); font-size: 13px; cursor: pointer; }
+.auth-card label.remember-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .tabs { display: flex; gap: 6px; background: var(--bg-2); padding: 4px; border-radius: 10px; margin: 20px 0; }
 .tabs button { flex: 1; border: none; background: transparent; color: var(--muted); padding: 9px; border-radius: 7px; }
 .tabs button.active { background: var(--accent); color: #fff; }

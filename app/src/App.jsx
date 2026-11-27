@@ -39,6 +39,9 @@ export default function App() {
 
   const logout = useCallback(() => {
     localStorage.removeItem('nexus_token');
+    localStorage.removeItem('nexus_user');
+    localStorage.removeItem('nexus_pass');
+    localStorage.removeItem('nexus_remember');
     disconnectSocket();
     setToken(null);
     setMe(null);

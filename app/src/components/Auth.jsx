@@ -1,45 +1,87 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { getServerUrl, setServerUrl, isServerUrlAutomatic } from '../config.js';
+
+const USER_KEY = 'nexus_user';
+const PASS_KEY = 'nexus_pass';
+const REMEMBER_KEY = 'nexus_remember';
+
+function readRemembered() {
+  try {
+    if (localStorage.getItem(REMEMBER_KEY) !== '1') return null;
+    const username = localStorage.getItem(USER_KEY) || '';
+    const password = localStorage.getItem(PASS_KEY) || '';
+    return username && password ? { username, password } : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function Auth({ onAuthenticated }) {
   const [mode, setMode] = useState('login');
   const [serverUrl, setUrl] = useState(getServerUrl());
   const automatic = isServerUrlAutomatic();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const remembered = useRef(readRemembered());
+  const [username, setUsername] = useState(remembered.current?.username || '');
+  const [password, setPassword] = useState(remembered.current?.password || '');
   const [displayName, setDisplayName] = useState('');
+  const [remember, setRemember] = useState(Boolean(remembered.current));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const autoTried = useRef(false);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  async function authenticate(kind, userValue, passValue, nameValue = '') {
     setError('');
     if (!automatic) {
       if (!serverUrl.trim()) {
         setError('Escribe la URL del servidor.');
-        return;
+        return false;
       }
       setServerUrl(serverUrl.trim());
     }
     setBusy(true);
     try {
-      const data = await api(mode === 'login' ? '/auth/login' : '/auth/register', {
+      const data = await api(kind === 'login' ? '/auth/login' : '/auth/register', {
         method: 'POST',
         auth: false,
         body: {
-          username: username.trim().toLowerCase(),
-          password,
-          displayName: displayName.trim()
+          username: userValue.trim().toLowerCase(),
+          password: passValue,
+          displayName: nameValue.trim()
         }
       });
       localStorage.setItem('nexus_token', data.token);
+      if (remember) {
+        localStorage.setItem(USER_KEY, userValue.trim().toLowerCase());
+        localStorage.setItem(PASS_KEY, passValue);
+        localStorage.setItem(REMEMBER_KEY, '1');
+      } else {
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(PASS_KEY);
+        localStorage.removeItem(REMEMBER_KEY);
+      }
       onAuthenticated(data.user);
+      return true;
     } catch (err) {
       setError(err.message);
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  useEffect(() => {
+    if (autoTried.current) return;
+    autoTried.current = true;
+    const saved = remembered.current;
+    if (saved && !localStorage.getItem('nexus_token')) {
+      authenticate('login', saved.username, saved.password);
+    }
+  }, []);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    await authenticate(mode, username, password, displayName);
   }
 
   return (
@@ -113,6 +155,16 @@ export default function Auth({ onAuthenticated }) {
               required
             />
           </label>
+
+          <label className="remember-row">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Recordarme en esta PC
+          </label>
+          <small className="hint">Entrás automáticamente al abrir Nexus. Los datos quedan solo en este equipo.</small>
 
           {error && <div className="error-box">{error}</div>}
 

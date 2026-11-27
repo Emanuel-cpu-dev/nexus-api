@@ -1,0 +1,23 @@
+NEXUS - CÓMO ABRIRLO EN OTRA PC
+
+1) Extraé el ZIP en el Escritorio (clic derecho -> Extraer todo).
+   No lo ejecutes desde adentro del ZIP ni desde un pendrive o carpeta de red.
+
+2) El archivo debe llamarse exactamente: Nexus-Portable.exe
+   Si dice Nexus-Portable.exe.exe, .exe.bin osimilar, renombralo a Nexus-Portable.exe.
+   (En el Explorador: Ver -> mostrar extensiones de archivo).
+
+3) Clic derecho sobre Nexus-Portable.exe -> Propiedades.
+   Si abajo aparece "Desbloquear", marcalo -> Aplicar -> Aceptar.
+
+4) Si Windows pregunta "¿Con qué programa querés abrir este archivo?":
+   ejecutá ARREGLA-EXE-OTRA-PC.cmd con clic derecho ->
+   "Ejecutar como administrador". Después probá de nuevo.
+
+5) Si aparece la pantalla azul de Windows Defender / SmartScreen:
+   clic en "Más información" -> "Ejecutar de todos modos".
+
+6) Doble clic en Nexus-Portable.exe. Se abre una ventana llamada "Nexus".
+   No hay que configurar ninguna URL: la interfaz se carga sola desde Render.
+
+Si sigue sin abrirse, copiame el mensaje exacto que muestra Windows.
