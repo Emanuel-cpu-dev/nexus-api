@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { getSocket } from '../socket.js';
 import { RtcManager } from '../rtc.js';
-import { cx, initials } from '../utils.js';
+import { cx } from '../utils.js';
+import Avatar from './Avatar.jsx';
 
-function VideoTile({ stream, name, muted = false, remote = false }) {
+function VideoTile({ stream, name, user, muted = false, remote = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const element = ref.current;
@@ -24,7 +25,7 @@ function VideoTile({ stream, name, muted = false, remote = false }) {
         className={cx('tile-video', remote && 'remote-video', !hasVideo && 'no-video')}
       />
       <span className="video-label">{name || 'Participante'}</span>
-      {!hasVideo && <span className="video-avatar">{initials(name)}</span>}
+      {!hasVideo && <span className="video-avatar"><Avatar user={user} size="xl" /></span>}
     </div>
   );
 }
@@ -44,7 +45,10 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const cameraRef = useRef(null);
 
   const callId = call?.callId;
-  const nameOf = (id) => (id === me?.id ? `${me?.displayName} (tú)` : friends.find((f) => f.id === id)?.displayName || 'Participante');
+  const userOf = (id) => (id === me?.id ? me : friends.find((f) => f.id === id));
+  const nameOf = (id) => (id === me?.id
+    ? `${me?.displayName} (tú)`
+    : userOf(id)?.displayName || 'Participante');
 
   useEffect(() => {
     if (!callId || !active) return undefined;
@@ -250,6 +254,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     return (
       <div className="overlay">
         <div className="card call-card">
+          <div className="incoming-avatar"><Avatar user={call.from} size="xl" /></div>
           <div className="call-pulse">📹</div>
           <h2>Llamada entrante</h2>
           <p>{call.from?.displayName || 'Un amigo'} te está llamando</p>
@@ -279,9 +284,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         {error && <div className="error-box">{error}</div>}
 
         <div className="video-grid">
-          <VideoTile stream={localStream} name={`${me?.displayName} (tú)`} muted />
+          <VideoTile stream={localStream} name={`${me?.displayName} (tú)`} user={me} muted />
           {peerIds.filter((id) => id !== me?.id).map((id) => (
-            <VideoTile key={id} stream={remoteStreams[id]} name={nameOf(id)} remote />
+            <VideoTile key={id} stream={remoteStreams[id]} name={nameOf(id)} user={userOf(id)} remote />
           ))}
         </div>
 

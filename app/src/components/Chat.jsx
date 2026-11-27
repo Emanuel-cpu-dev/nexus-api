@@ -44,7 +44,7 @@ function MessageBubble({ message, me }) {
   );
 }
 
-export default function Chat({ chat, me, compact = false, onCall, onCine }) {
+export default function Chat({ chat, me, compact = false, onCall, onCine, onBack }) {
   const validDm = chat?.type === 'dm' && Boolean(chat.userId);
   const validCommunity = chat?.type === 'community' && Boolean(chat.communityId);
   const canChat = validDm || validCommunity;
@@ -184,6 +184,11 @@ export default function Chat({ chat, me, compact = false, onCall, onCine }) {
   return (
     <section className={cx('chat-panel card', compact && 'compact')}>
       <header className="chat-header">
+        {onBack && (
+          <button type="button" className="icon-btn chat-back" title="Volver a conversaciones" onClick={onBack}>
+            ←
+          </button>
+        )}
         <div className="grow">
           <strong>{title || 'Mensajes'}</strong>
           <div className="tiny muted">

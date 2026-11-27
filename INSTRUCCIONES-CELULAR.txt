@@ -10,6 +10,8 @@ NEXUS EN ANDROID
 
 Es la misma cuenta de siempre: no hay que registrarse de nuevo.
 La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios.
+En la pantalla de Inicio (y Amigos, Grupos, Perfil, Ajustes) tirá hacia abajo para actualizar, como en Instagram.
+El ícono y la pantalla de carga son el logo violeta de Nexus, igual que en la PC.
 
 Para compartir pantalla dentro de una llamada, usar la app de escritorio (en Android no está disponible).
 

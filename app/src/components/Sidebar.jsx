@@ -2,13 +2,13 @@ import Avatar from './Avatar.jsx';
 import { STATUSES } from '../preferences.js';
 
 const NAV = [
-  { id: 'home', icon: '🏠', label: 'Inicio' },
-  { id: 'friends', icon: '👥', label: 'Amigos' },
-  { id: 'messages', icon: '💬', label: 'Mensajes' },
-  { id: 'cine', icon: '📺', label: 'Ver juntos' },
-  { id: 'communities', icon: '🌐', label: 'Comunidades' },
-  { id: 'profile', icon: '👤', label: 'Mi perfil' },
-  { id: 'settings', icon: '⚙️', label: 'Configuración' }
+  { id: 'home', icon: '🏠', label: 'Inicio', short: 'Inicio' },
+  { id: 'friends', icon: '👥', label: 'Amigos', short: 'Amigos' },
+  { id: 'messages', icon: '💬', label: 'Mensajes', short: 'Chats' },
+  { id: 'cine', icon: '📺', label: 'Ver juntos', short: 'Ver' },
+  { id: 'communities', icon: '🌐', label: 'Comunidades', short: 'Grupos' },
+  { id: 'profile', icon: '👤', label: 'Mi perfil', short: 'Perfil' },
+  { id: 'settings', icon: '⚙️', label: 'Configuración', short: 'Ajustes' }
 ];
 
 function dotClass(friend) {
@@ -38,9 +38,11 @@ export default function Sidebar({
             type="button"
             className={`nav-item ${view === item.id ? 'active' : ''}`}
             onClick={() => changeView(item.id)}
+            title={item.label}
           >
             <span className="nav-icon">{item.icon}</span>
-            {item.label}
+            <span className="nav-label nav-label-full">{item.label}</span>
+            <span className="nav-label nav-label-short">{item.short || item.label}</span>
           </button>
         ))}
       </nav>

@@ -44,6 +44,13 @@ export default function Feed({ communityId = null, compact = false }) {
     load();
   }, [load]);
 
+  // El gesto de "tirar para abajo" del celular también recarga el feed.
+  useEffect(() => {
+    const refresh = () => load();
+    window.addEventListener('nexus:refresh', refresh);
+    return () => window.removeEventListener('nexus:refresh', refresh);
+  }, [load]);
+
   async function publish(event) {
     event.preventDefault();
     if (!text.trim() && !fileId) return;

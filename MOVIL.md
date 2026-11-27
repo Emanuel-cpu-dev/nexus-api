@@ -8,8 +8,8 @@ No cambia el backend, no cambia el `.exe` de escritorio y **no hay que reenviar 
 
 ## Instalar en el celular
 
-1. Pasar `Nexus.apk` por WhatsApp (o cable, Drive, etc.).
-2. Abrir el archivo en el celular.
+1. Mejor: abrir en el celular `https://nexus-api-cdxi.onrender.com/Nexus.apk` con Chrome. Si se pasa por WhatsApp, mandar `Nexus.apk` suelto (no el ZIP).
+2. Abrir el archivo desde Descargas con la app Archivos.
 3. Si Android pide permiso: **Configuración → Permitir instalación de aplicaciones desconocidas**.
 4. Si aparece Play Protect: **Más información → Instalar de todos modos**.
 5. Abrir Nexus y aceptar permisos de **cámara** y **micrófono** cuando salten.
@@ -19,6 +19,9 @@ No cambia el backend, no cambia el `.exe` de escritorio y **no hay que reenviar 
 - ✅ Chat, amigos, códigos, estados, comunidad, “Ver juntos” y videollamadas (WebRTC nativo del WebView).
 - ✅ Audio en llamadas; si no arranca, tocar **🔊 Activar sonido** dentro de la llamada.
 - ✅ “Recordarme”: la sesión queda guardada en el celular y los tokens también viven en la SQLite del server.
+- ✅ Interfaz responsive: menú abajo, chats a pantalla completa con botón ←, tarjetas y llamadas adaptadas al celular.
+- ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Comunidades, Perfil y Configuración.
+- ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ❌ **Compartir pantalla** no está disponible en el WebView de Android; la app muestra un aviso claro. Para compartir pantalla se usa la versión de escritorio.
 
 ## Compilar de nuevo (Windows)
@@ -40,6 +43,8 @@ $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 npx cap sync android
 .\android\gradlew.bat -p android assembleRelease --no-daemon
 ```
+
+Los íconos y el splash se generan desde el `.ico` de la PC con `.\generate-icons.ps1` (dentro de `mobile`). No hace falta editar PNG a mano.
 
 La APK firmada queda en `mobile/android/app/build/outputs/apk/release/app-release.apk`. Copiarla a `C:\Nexus\Nexus.apk`.
 

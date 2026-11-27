@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
 import { connectSocket, disconnectSocket, getSocket } from './socket.js';
 import Auth from './components/Auth.jsx';
@@ -66,6 +66,11 @@ export default function App() {
   const [loading, setLoading] = useState(Boolean(token));
   const [myStatus, setStatusState] = useState(getMyStatus);
   const [soundOn, setSoundState] = useState(getSoundEnabled);
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const contentRef = useRef(null);
+  const pullRef = useRef(0);
+  const refreshingRef = useRef(false);
 
   const toast = useCallback((entry) => {
     const item = typeof entry === 'string' ? { message: entry } : entry;
@@ -132,6 +137,78 @@ export default function App() {
       if (/401|No autorizado/i.test(error.message)) logout();
     }
   }, [toast, logout]);
+
+  // "Tirar para abajo para actualizar" en el celular (como Instagram).
+  const pullEnabled = ['home', 'friends', 'communities', 'profile', 'userProfile', 'settings'].includes(view)
+    && !(view === 'communities' && communityOpen);
+
+  useEffect(() => {
+    const node = contentRef.current;
+    if (!node || !pullEnabled) {
+      pullRef.current = 0;
+      setPull(0);
+      return undefined;
+    }
+
+    let startY = 0;
+    let active = false;
+
+    function onStart(event) {
+      if (refreshingRef.current || event.touches.length !== 1 || node.scrollTop > 0) return;
+      startY = event.touches[0].clientY;
+      active = true;
+    }
+
+    function onMove(event) {
+      if (!active || event.touches.length !== 1) return;
+      if (node.scrollTop > 0) {
+        active = false;
+        pullRef.current = 0;
+        setPull(0);
+        return;
+      }
+      const delta = event.touches[0].clientY - startY;
+      const next = delta > 0 ? Math.min(96, delta * 0.55) : 0;
+      pullRef.current = next;
+      setPull(next);
+    }
+
+    async function onEnd() {
+      if (!active) return;
+      active = false;
+      if (pullRef.current < 60) {
+        pullRef.current = 0;
+        setPull(0);
+        return;
+      }
+      refreshingRef.current = true;
+      setRefreshing(true);
+      pullRef.current = 56;
+      setPull(56);
+      try {
+        await load();
+        window.dispatchEvent(new CustomEvent('nexus:refresh'));
+      } finally {
+        refreshingRef.current = false;
+        setRefreshing(false);
+        pullRef.current = 0;
+        setPull(0);
+      }
+    }
+
+    node.addEventListener('touchstart', onStart, { passive: true });
+    node.addEventListener('touchmove', onMove, { passive: true });
+    node.addEventListener('touchend', onEnd, { passive: true });
+    node.addEventListener('touchcancel', onEnd, { passive: true });
+    return () => {
+      node.removeEventListener('touchstart', onStart);
+      node.removeEventListener('touchmove', onMove);
+      node.removeEventListener('touchend', onEnd);
+      node.removeEventListener('touchcancel', onEnd);
+      pullRef.current = 0;
+      setPull(0);
+    };
+  }, [pullEnabled, load]);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -266,9 +343,11 @@ export default function App() {
     if (next === 'cine' && !cineTarget) {
       setCineTarget({ type: 'general', id: 'general', name: 'Sala general' });
     }
+    // En el celular, tocar "Chats" desde otra sección debe mostrar la lista.
+    if (next === 'messages' && view !== 'messages') setActiveChat(null);
     if (next !== 'communities') setCommunityOpen(null);
     setView(next);
-  }, [cineTarget]);
+  }, [cineTarget, view]);
 
   const openDm = useCallback(async (friend, nextView = 'messages') => {
     if (!friend?.id) return;
@@ -396,7 +475,15 @@ export default function App() {
         onToggleSound={toggleSound}
       />
 
-      <main className="content">
+      <main className="content" ref={contentRef}>
+        {pullEnabled && (
+          <div className="pull-indicator" style={{ height: pull }} aria-hidden={!pull && !refreshing}>
+            <span className={`pull-spinner ${refreshing ? 'spinning' : ''}`}>{refreshing ? '⟳' : '↓'}</span>
+            <span className="tiny muted">
+              {refreshing ? 'Actualizando…' : pull >= 60 ? 'Suelta para actualizar' : 'Tira para actualizar'}
+            </span>
+          </div>
+        )}
         {view === 'home' && (
           <div className="page home-page">
             <div className="hero card">
@@ -425,13 +512,13 @@ export default function App() {
         )}
 
         {view === 'messages' && (
-          <div className="messages-layout">
+          <div className={`messages-layout ${activeChat ? 'mobile-chat-open' : ''}`}>
             <div className="card chat-list">
               <h3>Conversaciones</h3>
               <button
                 type="button"
                 className={`dm-item wide ${resolvedChat.type === 'general' ? 'active' : ''}`}
-                onClick={() => setActiveChat(null)}
+                onClick={() => setActiveChat({ type: 'general', id: 'general', name: 'Chat general' })}
               >
                 🌐 Chat general
               </button>
@@ -451,6 +538,7 @@ export default function App() {
             <Chat
               chat={resolvedChat}
               me={me}
+              onBack={() => setActiveChat(null)}
               onCall={(user) => startCall(user)}
               onCine={openCineForChat}
             />
