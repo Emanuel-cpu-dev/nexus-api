@@ -1,7 +1,9 @@
 NEXUS EN ANDROID
 
-1) Pasar el archivo Nexus.apk por WhatsApp al celular.
-2) Abrirlo desde WhatsApp o desde "Descargas".
+1) Mejor: abrir este link en el celular con Chrome y descargar:
+   https://nexus-api-cdxi.onrender.com/Nexus.apk
+   Si no, pasar el archivo Nexus.apk suelto por WhatsApp (no el ZIP).
+2) Abrirlo desde "Descargas" con la app Archivos, no directamente desde el chat.
 3) Si Android lo bloquea: permitir "Instalar aplicaciones desconocidas".
 4) Si aparece Play Protect: "Más información" -> "Instalar de todos modos".
 5) Abrir Nexus y aceptar permisos de camara y microfono.
