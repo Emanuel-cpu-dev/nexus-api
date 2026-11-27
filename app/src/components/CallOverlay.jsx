@@ -189,6 +189,10 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       stopScreenShare();
       return;
     }
+    if (!window.electronAPI?.getSources && !navigator.mediaDevices?.getDisplayMedia) {
+      setError('En el celular no se puede compartir pantalla. Usá la app de escritorio.');
+      return;
+    }
     try {
       let stream;
       if (window.electronAPI?.getSources) {
