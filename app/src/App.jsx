@@ -204,8 +204,7 @@ export default function App() {
   }, [toast, logout]);
 
   // "Tirar para abajo para actualizar" en el celular (como Instagram).
-  const pullEnabled = ['home', 'friends', 'communities', 'profile', 'userProfile', 'settings'].includes(view)
-    && !(view === 'communities' && communityOpen);
+  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'profile', 'userProfile', 'settings', 'cine'].includes(view);
 
   useEffect(() => {
     const node = contentRef.current;
@@ -218,30 +217,43 @@ export default function App() {
     let startY = 0;
     let active = false;
 
+    // En chat y cine el scroll puede estar en un hijo, no en .content.
+    // Solo activamos el gesto si todos los contenedores están arriba.
+    function atTop(target) {
+      let element = target instanceof Element ? target : null;
+      while (element && element !== node) {
+        if (element.scrollTop > 0) return false;
+        element = element.parentElement;
+      }
+      return node.scrollTop <= 0;
+    }
+
     function onStart(event) {
-      if (refreshingRef.current || event.touches.length !== 1 || node.scrollTop > 0) return;
+      if (refreshingRef.current || event.touches?.length !== 1 || !atTop(event.target)) return;
       startY = event.touches[0].clientY;
       active = true;
     }
 
     function onMove(event) {
-      if (!active || event.touches.length !== 1) return;
-      if (node.scrollTop > 0) {
+      if (!active || event.touches?.length !== 1) return;
+      if (!atTop(event.target)) {
         active = false;
         pullRef.current = 0;
         setPull(0);
         return;
       }
       const delta = event.touches[0].clientY - startY;
-      const next = delta > 0 ? Math.min(96, delta * 0.55) : 0;
+      const next = delta > 0 ? Math.min(96, delta * 0.6) : 0;
       pullRef.current = next;
       setPull(next);
+      // Evita que el WebView haga su propio overscroll mientras mostramos el indicador.
+      if (next > 0 && event.cancelable) event.preventDefault();
     }
 
     async function onEnd() {
       if (!active) return;
       active = false;
-      if (pullRef.current < 60) {
+      if (pullRef.current < 55) {
         pullRef.current = 0;
         setPull(0);
         return;
@@ -262,7 +274,7 @@ export default function App() {
     }
 
     node.addEventListener('touchstart', onStart, { passive: true });
-    node.addEventListener('touchmove', onMove, { passive: true });
+    node.addEventListener('touchmove', onMove, { passive: false });
     node.addEventListener('touchend', onEnd, { passive: true });
     node.addEventListener('touchcancel', onEnd, { passive: true });
     return () => {
@@ -273,7 +285,7 @@ export default function App() {
       pullRef.current = 0;
       setPull(0);
     };
-  }, [pullEnabled, load]);
+  }, [pullEnabled, load, loading, me]);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -367,6 +379,7 @@ export default function App() {
         status: 'incoming',
         callId: payload?.callId,
         from: payload?.from,
+        hostId: payload?.hostId || payload?.from?.id,
         peers: payload?.peers || [],
         video: payload?.video !== false
       });
@@ -375,8 +388,8 @@ export default function App() {
       toast(`${payload?.user?.displayName || 'Tu amigo'} se unió a la llamada`);
     }
     function onCallRejected(payload) {
+      // Un invitado rechazó: el anfitrión sigue en la sala con los demás.
       toast(`${payload?.user?.displayName || 'Tu amigo'} rechazó la llamada`);
-      setCall(null);
     }
     function onCallEnded() {
       setCall(null);
@@ -454,6 +467,7 @@ export default function App() {
             status: 'incoming',
             callId: invite.callId,
             from: invite.from,
+            hostId: invite.hostId || invite.from?.id,
             peers: invite.peers || [],
             video: invite.video !== false
           });
@@ -525,6 +539,7 @@ export default function App() {
       else setCall({
         status: 'outgoing',
         callId,
+        hostId: me.id,
         peers: [me.id, friend.id],
         video: true
       });

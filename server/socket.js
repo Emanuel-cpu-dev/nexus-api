@@ -55,10 +55,22 @@ export function setupSocket(io) {
   function leaveCall(callId, userId) {
     const call = calls.get(callId);
     if (!call) return;
+    const wasHost = call.hostId === userId;
     call.peers.delete(userId);
     call.accepted.delete(userId);
-    io.to(`call:${callId}`).emit('call:left', { callId, userId });
-    if (call.peers.size === 0 || !call.peers.has(call.hostId)) endCall(callId, userId);
+
+    // Sale uno, no se corta la sala: si era el anfitrión, el rol pasa a otro participante.
+    if (wasHost && call.peers.size > 0) {
+      call.hostId = [...call.accepted][0] || [...call.peers][0];
+    }
+
+    io.to(`call:${callId}`).emit('call:left', {
+      callId,
+      userId,
+      hostId: call.hostId,
+      user: getUserById(userId) ? publicUser(getUserById(userId)) : null
+    });
+    if (call.peers.size === 0) endCall(callId, userId);
   }
 
   io.on('connection', (socket) => {
@@ -208,10 +220,11 @@ export function setupSocket(io) {
       const invite = {
         callId,
         from: socket.user,
+        hostId: call.hostId,
         peers: [...call.peers],
         video: call.video,
         at: now()
-      };
+      }
       for (const userId of ids) {
         addInvite(userId, invite);
         io.to(`user:${userId}`).emit('call:invite', invite);
@@ -234,6 +247,7 @@ export function setupSocket(io) {
       joinCallRoom(callId, myId);
       io.to(`call:${callId}`).emit('call:ready', {
         callId,
+        hostId: call.hostId,
         peers: [...call.accepted],
         accepted: [...call.accepted]
       });
@@ -275,6 +289,7 @@ export function setupSocket(io) {
       if (!call || !call.accepted.has(myId)) return;
       io.to(`call:${call.id}`).emit('call:ready', {
         callId: call.id,
+        hostId: call.hostId,
         peers: [...call.accepted],
         accepted: [...call.accepted]
       });

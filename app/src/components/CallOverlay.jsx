@@ -42,6 +42,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const [sharing, setSharing] = useState(false);
   const [selected, setSelected] = useState([]);
   const [minimized, setMinimized] = useState(false);
+  const [hostId, setHostId] = useState(call?.hostId || call?.from?.id || null);
   const [error, setError] = useState('');
   const rtcRef = useRef(null);
   const screenRef = useRef(null);
@@ -115,13 +116,19 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     function onReady(payload) {
       if (payload?.callId !== callId) return;
       const ids = payload.peers || [];
+      if (payload.hostId) setHostId(payload.hostId);
       setPeerIds(ids);
       rtcRef.current?.syncPeers(ids);
       rtcRef.current?.renegotiate();
     }
     function onLeft(payload) {
       if (payload?.callId !== callId || !payload.userId) return;
-      setPeerIds((current) => current.filter((id) => id !== payload.userId));
+      if (payload.hostId) setHostId(payload.hostId);
+      setPeerIds((current) => {
+        const next = current.filter((id) => id !== payload.userId);
+        rtcRef.current?.syncPeers(next);
+        return next;
+      });
       setRemoteStreams((current) => {
         const next = { ...current };
         delete next[payload.userId];
@@ -162,6 +169,12 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   }
 
   function hangup() {
+    // Salir no corta la sala: los demás siguen hablando.
+    getSocket()?.emit('call:leave', { callId });
+    onClose();
+  }
+
+  function endRoom() {
     getSocket()?.emit('call:ended', { callId });
     onClose();
   }
@@ -276,6 +289,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const inviteable = friends.filter((friend) => !peerIds.includes(friend.id));
   const roomFull = peerIds.length >= MAX_CALL_PARTICIPANTS;
   const peopleInRoom = peerIds.length || 1;
+  const isHost = hostId === me?.id || (!hostId && call?.from?.id === me?.id);
 
   const tiles = (
     <>
@@ -298,7 +312,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           <button type="button" className="icon-btn" title={muted ? 'Activar micrófono' : 'Silenciar'} onClick={toggleMute}>
             {muted ? '🔇' : '🎙️'}
           </button>
-          <button type="button" className="icon-btn" title="Colgar" onClick={hangup}>📴</button>
+          <button type="button" className="icon-btn" title="Salir de la llamada" onClick={hangup}>📴</button>
         </div>
       </>
     );
@@ -314,7 +328,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           </div>
           <div className="call-header-actions">
             <button type="button" className="icon-btn" title="Minimizar y seguir usando la app" onClick={() => setMinimized(true)}>－</button>
-            <button type="button" className="icon-btn" title="Colgar" onClick={hangup}>✕</button>
+            <button type="button" className="icon-btn" title="Salir de la llamada (los demás siguen)" onClick={hangup}>✕</button>
           </div>
         </header>
 
@@ -345,7 +359,10 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           <button type="button" className={cx('control', sharing && 'off')} onClick={shareScreen}>
             {sharing ? '🛑 Dejar de compartir' : '🖥️ Compartir pantalla'}
           </button>
-          <button type="button" className="control hangup" onClick={hangup}>📴 Colgar</button>
+          <button type="button" className="control hangup" onClick={hangup}>🚪 Salir (los demás siguen)</button>
+          {isHost && (
+            <button type="button" className="control danger-outline" onClick={endRoom}>⛔ Finalizar sala</button>
+          )}
         </div>
       </div>
     </div>

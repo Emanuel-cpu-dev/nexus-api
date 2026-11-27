@@ -9,6 +9,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -34,8 +36,11 @@ import io.socket.client.Socket;
  */
 public class NexusMessagingService extends Service {
     private static final String CH_FOREGROUND = "nexus_foreground";
-    private static final String CH_MESSAGES = "nexus_messages";
-    private static final String CH_CALLS = "nexus_calls";
+    // Canales nuevos: los canales de Android no cambian de sonido una vez creados.
+    private static final String CH_MESSAGES = "nexus_messages_v2";
+    private static final String CH_CALLS = "nexus_calls_v2";
+    private static final String CH_MESSAGES_SILENT = "nexus_messages_silent";
+    private static final String CH_CALLS_SILENT = "nexus_calls_silent";
 
     private final AtomicInteger notificationId = new AtomicInteger(2000);
     private Socket socket;
@@ -102,15 +107,38 @@ public class NexusMessagingService extends Service {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager == null) return;
+
+        // Canales viejos sin sonido: se eliminan para que no queden en Ajustes.
+        manager.deleteNotificationChannel("nexus_messages");
+        manager.deleteNotificationChannel("nexus_calls");
+
         NotificationChannel foreground = new NotificationChannel(
                 CH_FOREGROUND, "Nexus en segundo plano", NotificationManager.IMPORTANCE_LOW);
+
         NotificationChannel messages = new NotificationChannel(
                 CH_MESSAGES, "Mensajes", NotificationManager.IMPORTANCE_HIGH);
+        messages.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION), audioAttributes(AudioAttributes.USAGE_NOTIFICATION));
         messages.enableVibration(true);
+        messages.setVibrationPattern(new long[]{0, 180, 120, 180});
+
         NotificationChannel calls = new NotificationChannel(
                 CH_CALLS, "Llamadas entrantes", NotificationManager.IMPORTANCE_HIGH);
+        calls.setSound(defaultSound(RingtoneManager.TYPE_RINGTONE), audioAttributes(AudioAttributes.USAGE_NOTIFICATION_RINGTONE));
         calls.enableVibration(true);
-        manager.createNotificationChannels(Arrays.asList(foreground, messages, calls));
+        calls.setVibrationPattern(new long[]{0, 500, 250, 500});
+
+        NotificationChannel messagesSilent = new NotificationChannel(
+                CH_MESSAGES_SILENT, "Mensajes silenciosos", NotificationManager.IMPORTANCE_LOW);
+        messagesSilent.setSound(null, null);
+        messagesSilent.enableVibration(false);
+
+        NotificationChannel callsSilent = new NotificationChannel(
+                CH_CALLS_SILENT, "Llamadas silenciosas", NotificationManager.IMPORTANCE_HIGH);
+        callsSilent.setSound(null, null);
+        callsSilent.enableVibration(false);
+
+        manager.createNotificationChannels(Arrays.asList(
+                foreground, messages, calls, messagesSilent, callsSilent));
     }
 
     private Notification foregroundNotification() {
@@ -154,10 +182,12 @@ public class NexusMessagingService extends Service {
             if (text.isEmpty() && message.optJSONObject("file") != null) text = "📎 Archivo adjunto";
             if (text.isEmpty()) text = "Nuevo mensaje";
 
-            NotificationCompat.Builder builder = base(CH_MESSAGES, name, text, openApp(from, null, 1));
+            boolean quiet = silent();
+            NotificationCompat.Builder builder = base(
+                    quiet ? CH_MESSAGES_SILENT : CH_MESSAGES, name, text, openApp(from, null, 1));
             builder.setCategory(Notification.CATEGORY_MESSAGE);
-            if (!silent()) {
-                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION));
+            if (!quiet) {
+                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION), AudioManager.STREAM_NOTIFICATION);
                 builder.setVibrate(new long[]{0, 180, 120, 180});
             }
             show(notificationId.getAndIncrement(), builder.build());
@@ -177,12 +207,15 @@ public class NexusMessagingService extends Service {
                     ? "Te está llamando por video"
                     : "Te está llamando";
 
-            NotificationCompat.Builder builder = base(CH_CALLS, "Llamada entrante · " + name, body, openApp(null, callId, 2));
+            boolean quiet = silent();
+            NotificationCompat.Builder builder = base(
+                    quiet ? CH_CALLS_SILENT : CH_CALLS,
+                    "Llamada entrante · " + name, body, openApp(null, callId, 2));
             builder.setCategory(Notification.CATEGORY_CALL);
             builder.setPriority(NotificationCompat.PRIORITY_MAX);
             builder.setOngoing(false);
-            if (!silent()) {
-                builder.setSound(defaultSound(RingtoneManager.TYPE_RINGTONE));
+            if (!quiet) {
+                builder.setSound(defaultSound(RingtoneManager.TYPE_RINGTONE), AudioManager.STREAM_RING);
                 builder.setVibrate(new long[]{0, 500, 250, 500});
                 builder.setFullScreenIntent(openApp(null, callId, 3), true);
             }
@@ -198,9 +231,13 @@ public class NexusMessagingService extends Service {
             JSONObject from = payload.optJSONObject("from");
             String name = from != null ? from.optString("displayName", "") : "";
             if (name.isEmpty()) name = "Alguien";
+            boolean quiet = silent();
             NotificationCompat.Builder builder = base(
-                    CH_MESSAGES, "Solicitud de amistad", name + " quiere ser tu amigo", openApp(null, null, 4));
-            if (!silent()) builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION));
+                    quiet ? CH_MESSAGES_SILENT : CH_MESSAGES,
+                    "Solicitud de amistad", name + " quiere ser tu amigo", openApp(null, null, 4));
+            if (!quiet) {
+                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION), AudioManager.STREAM_NOTIFICATION);
+            }
             show(notificationId.getAndIncrement(), builder.build());
         } catch (Exception ignored) {
             // Ignorar.
@@ -210,6 +247,13 @@ public class NexusMessagingService extends Service {
     private Uri defaultSound(int type) {
         Uri uri = RingtoneManager.getDefaultUri(type);
         return uri != null ? uri : RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+    }
+
+    private AudioAttributes audioAttributes(int usage) {
+        return new AudioAttributes.Builder()
+                .setUsage(usage)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
     }
 
     private NotificationCompat.Builder base(String channel, String title, String body, PendingIntent open) {

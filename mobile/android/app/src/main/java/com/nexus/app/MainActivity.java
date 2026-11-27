@@ -26,13 +26,19 @@ public class MainActivity extends BridgeActivity {
         // Permite que el audio de las videollamadas arranque sin exigir un toque extra.
         getBridge().getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
         getBridge().getWebView().getSettings().setDomStorageEnabled(true);
+        // El tamaño de letra del sistema no debe agrandar la interfaz dentro de la app.
+        getBridge().getWebView().getSettings().setTextZoom(100);
 
-        // Android 15 dibuja el WebView debajo de la barra de estado.
-        // Reservamos el espacio de barras para que la hora/batería no tape la interfaz.
+        // Android dibuja el WebView debajo de barras y gestos. Reservamos ese espacio
+        // para que la hora/batería y los botones del sistema no tapen el menú inferior.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         View webView = getBridge().getWebView();
+        int mask = WindowInsetsCompat.Type.systemBars()
+                | WindowInsetsCompat.Type.navigationBars()
+                | WindowInsetsCompat.Type.systemGestures()
+                | WindowInsetsCompat.Type.displayCutout();
         ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-            androidx.core.graphics.Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            androidx.core.graphics.Insets bars = insets.getInsets(mask);
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
