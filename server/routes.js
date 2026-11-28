@@ -16,6 +16,7 @@ import {
   getUserById,
   getUserByUsername,
   getUserByCode,
+  searchUsers,
   createToken,
   addFriendship,
   areFriends,
@@ -29,6 +30,8 @@ import {
   postsByUser,
   postShape,
   likeNotificationsFor,
+  saveMentions,
+  mentionNotificationsFor,
   saveFileData,
   blobBuffer,
   commentsFor,
@@ -163,6 +166,7 @@ export function createRoutes(io) {
       posts: postsFor(id),
       unread: unreadCountsFor(id),
       likeCount: likeNotificationsFor(id).length,
+      mentionCount: mentionNotificationsFor(id).length,
       location: {
         sharedWith: locationViewersFor(id),
         sharedBy: locationOwnersFor(id),
@@ -208,6 +212,13 @@ export function createRoutes(io) {
       db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
     }
     return res.json({ user: publicUser(getUserById(id)) });
+  });
+
+  // Autocompletado del @ en el composer. Va antes de /users/:id para que
+  // "search" no se interprete como un id de usuario.
+  router.get('/users/search', authRequired, (req, res) => {
+    const query = String(req.query.q || '').trim();
+    return res.json({ users: searchUsers(query, req.user.id, 12) });
   });
 
   router.get('/users/:id', authRequired, (req, res) => {
@@ -347,6 +358,10 @@ export function createRoutes(io) {
     return res.json({ likes: likeNotificationsFor(req.user.id) });
   });
 
+  router.get('/mentions/me', authRequired, (req, res) => {
+    return res.json({ mentions: mentionNotificationsFor(req.user.id) });
+  });
+
   router.get('/posts', authRequired, (req, res) => {
     const communityId = req.query.communityId || null;
     if (communityId && !isCommunityMember(req.user.id, communityId)) {
@@ -365,12 +380,25 @@ export function createRoutes(io) {
     }
     if (fileId && !getFileById(fileId)) return res.status(400).json({ error: 'El archivo no existe.' });
     const id = uid();
+    const savedText = text.slice(0, 5000);
     db.prepare(`
       INSERT INTO posts (id, user_id, community_id, text, file_id, created_at) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, req.user.id, communityId, text.slice(0, 5000), fileId, now());
+    `).run(id, req.user.id, communityId, savedText, fileId, now());
+    const tagged = saveMentions(id, savedText, req.user.id);
     const post = postShape(db.prepare('SELECT * FROM posts WHERE id = ?').get(id), req.user.id);
     if (communityId) io.to(`community:${communityId}`).emit('post:new', { communityId, post });
-    return res.status(201).json({ post });
+    // Cada etiquetado recibe su aviso por su propio canal, igual que los MG.
+    // No va por dm:message para no mezclarlo con los chats.
+    for (const user of tagged) {
+      io.to(`user:${user.id}`).emit('mention:new', {
+        postId: id,
+        postText: savedText,
+        hasFile: Boolean(fileId),
+        user: publicUser(req.user, req.user.id),
+        createdAt: now()
+      });
+    }
+    return res.status(201).json({ post, mentions: tagged });
   });
 
   router.post('/posts/:id/like', authRequired, (req, res) => {

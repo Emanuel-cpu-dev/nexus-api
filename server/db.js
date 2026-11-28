@@ -94,6 +94,13 @@ db.exec(`
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS mentions (
+    post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_mentions_user_created ON mentions(user_id, created_at);
   CREATE TABLE IF NOT EXISTS watch_rooms (
     key TEXT PRIMARY KEY,
     url TEXT DEFAULT '',
@@ -277,6 +284,32 @@ export function getUserById(id) {
 
 export function getUserByUsername(username) {
   return db.prepare('SELECT * FROM users WHERE username = ?').get(String(username).toLowerCase());
+}
+
+// Búsqueda para el autocompletado de @. Solo devuelve datos públicos y nunca
+// incluye contraseñas, códigos de acceso ni tokens.
+// Los resultados del autocompletado no exponen el código de acceso.
+function mentionUser(row, viewerId) {
+  const user = publicUser(row, viewerId);
+  if (!user) return null;
+  delete user.code;
+  return user;
+}
+
+export function searchUsers(query, viewerId, limit = 10) {
+  const value = String(query || '').trim().replace(/^@/, '').toLowerCase();
+  if (!value) {
+    return db.prepare(`
+      SELECT * FROM users WHERE id != ? ORDER BY username ASC LIMIT ?
+    `).all(viewerId, limit).map((row) => mentionUser(row, viewerId));
+  }
+  const pattern = `%${value}%`;
+  return db.prepare(`
+    SELECT * FROM users
+    WHERE id != ? AND (username LIKE ? OR display_name LIKE ?)
+    ORDER BY (username = ?) DESC, username ASC
+    LIMIT ?
+  `).all(viewerId, pattern, pattern, value, limit).map((row) => mentionUser(row, viewerId));
 }
 
 export function getUserByCode(code) {
@@ -504,6 +537,65 @@ export function commentsFor(postId) {
   return db.prepare('SELECT * FROM comments WHERE post_id = ? ORDER BY created_at ASC').all(postId).map(commentShape);
 }
 
+// Usuarios etiquetados con @ en el texto de una publicación (o en el pie de una foto).
+// Los nombres se normalizan igual que en el registro: minúsculas y sin puntos/guiones finales.
+export function mentionUsernames(text) {
+  const names = [];
+  const seen = new Set();
+  const expression = /@([a-zA-Z0-9_.-]{3,20})/g;
+  let match;
+  while ((match = expression.exec(String(text || '')))) {
+    const username = match[1].replace(/[.-]+$/, '').toLowerCase();
+    if (username.length >= 3 && !seen.has(username)) {
+      seen.add(username);
+      names.push(username);
+    }
+  }
+  return names;
+}
+
+export function saveMentions(postId, text, authorId) {
+  const created = [];
+  for (const username of mentionUsernames(text)) {
+    const user = getUserByUsername(username);
+    if (!user || user.id === authorId) continue;
+    const result = db.prepare(`
+      INSERT OR IGNORE INTO mentions (post_id, user_id, created_at) VALUES (?, ?, ?)
+    `).run(postId, user.id, now());
+    if (result.changes) created.push(mentionUser(user, authorId));
+  }
+  return created;
+}
+
+export function mentionsForPost(postId, viewerId) {
+  return db.prepare(`
+    SELECT u.* FROM mentions m JOIN users u ON u.id = m.user_id
+    WHERE m.post_id = ? ORDER BY m.created_at ASC
+  `).all(postId).map((row) => mentionUser(row, viewerId));
+}
+
+// Avisos de menciones para la pantalla de notificaciones. No incluye mensajes
+// privados ni datos de ubicación.
+export function mentionNotificationsFor(userId, limit = 120) {
+  const rows = db.prepare(`
+    SELECT m.post_id AS postId, m.created_at AS mentionCreated, p.text AS postText, p.file_id AS fileId, u.*
+    FROM mentions m
+    JOIN posts p ON p.id = m.post_id
+    JOIN users u ON u.id = p.user_id
+    WHERE m.user_id = ? AND p.user_id != ?
+    ORDER BY m.created_at DESC
+    LIMIT ?
+  `).all(userId, userId, limit);
+  return rows.map((row) => ({
+    id: `mention:${row.postId}:${row.id}`,
+    postId: row.postId,
+    postText: row.postText || '',
+    hasFile: Boolean(row.fileId),
+    user: mentionUser(row, userId),
+    createdAt: row.mentionCreated
+  }));
+}
+
 export function postShape(row, viewerId, includeRepost = true) {
   if (!row) return null;
   const likes = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(row.id).c;
@@ -543,6 +635,7 @@ export function postShape(row, viewerId, includeRepost = true) {
     reposted,
     repostOf,
     comments: commentsFor(row.id),
+    mentions: mentionsForPost(row.id, viewerId),
     createdAt: row.created_at
   };
 }

@@ -48,6 +48,7 @@ public class NexusMessagingService extends Service {
     private static final String CH_FOREGROUND = "nexus_foreground";
     // Canales nuevos: los canales de Android no cambian de sonido una vez creados.
     private static final String CH_MESSAGES = "nexus_messages_v2";
+    private static final String CH_SOCIAL = "nexus_social_v2";
     private static final String CH_CALLS = "nexus_calls_v2";
     private static final String CH_MESSAGES_SILENT = "nexus_messages_silent";
     private static final String CH_CALLS_SILENT = "nexus_calls_silent";
@@ -132,6 +133,7 @@ public class NexusMessagingService extends Service {
             socket.on("call:ready", args -> onCallReady(args));
             socket.on("call:ended", args -> onCallEnded(args));
             socket.on("friend:request", args -> onFriendRequest(args));
+            socket.on("mention:new", args -> onMention(args));
             socket.on(Socket.EVENT_CONNECT, args -> {
                 try {
                     JSONObject version = new JSONObject();
@@ -165,6 +167,12 @@ public class NexusMessagingService extends Service {
         messages.enableVibration(true);
         messages.setVibrationPattern(new long[]{0, 180, 120, 180});
 
+        NotificationChannel social = new NotificationChannel(
+                CH_SOCIAL, "Menciones y avisos", NotificationManager.IMPORTANCE_HIGH);
+        social.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION), audioAttributes(AudioAttributes.USAGE_NOTIFICATION));
+        social.enableVibration(true);
+        social.setVibrationPattern(new long[]{0, 180, 120, 180});
+
         NotificationChannel calls = new NotificationChannel(
                 CH_CALLS, "Llamadas entrantes", NotificationManager.IMPORTANCE_HIGH);
         calls.setSound(defaultSound(RingtoneManager.TYPE_RINGTONE), audioAttributes(AudioAttributes.USAGE_NOTIFICATION_RINGTONE));
@@ -189,7 +197,7 @@ public class NexusMessagingService extends Service {
         updates.setVibrationPattern(new long[]{0, 200, 120, 200});
 
         manager.createNotificationChannels(Arrays.asList(
-                foreground, messages, calls, messagesSilent, callsSilent, updates));
+                foreground, messages, social, calls, messagesSilent, callsSilent, updates));
     }
 
     private Notification foregroundNotification() {
@@ -205,10 +213,15 @@ public class NexusMessagingService extends Service {
     }
 
     private PendingIntent openApp(String fromId, String callId, int requestCode) {
+        return openApp(fromId, callId, null, requestCode);
+    }
+
+    private PendingIntent openApp(String fromId, String callId, String postId, int requestCode) {
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         if (fromId != null) intent.putExtra("nexusFromId", fromId);
         if (callId != null) intent.putExtra("nexusCallId", callId);
+        if (postId != null) intent.putExtra("nexusPostId", postId);
         return PendingIntent.getActivity(
                 this, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -438,6 +451,38 @@ public class NexusMessagingService extends Service {
             show(id, builder.build());
         } catch (Exception ignored) {
             // Ignorar.
+        }
+    }
+
+    private void onMention(Object[] args) {
+        try {
+            JSONObject payload = (JSONObject) args[0];
+            JSONObject from = payload.optJSONObject("user");
+            String name = from != null ? from.optString("displayName", "") : "";
+            if (name.isEmpty()) name = "Alguien";
+            String text = payload.optString("postText", "");
+            if (text.isEmpty()) {
+                text = payload.optBoolean("hasFile")
+                        ? "Te etiquetó en una foto"
+                        : "Te mencionó en una publicación";
+            } else {
+                text = "“" + text + "”";
+            }
+            boolean quiet = silent();
+            int id = notificationId.getAndIncrement();
+            NotificationCompat.Builder builder = base(
+                    quiet ? CH_MESSAGES_SILENT : CH_SOCIAL,
+                    name + " te mencionó",
+                    text,
+                    openApp(null, null, payload.optString("postId", null), id));
+            builder.setCategory(Notification.CATEGORY_SOCIAL);
+            if (!quiet) {
+                builder.setSound(defaultSound(RingtoneManager.TYPE_NOTIFICATION));
+                builder.setVibrate(new long[]{0, 180, 120, 180});
+            }
+            show(id, builder.build());
+        } catch (Exception ignored) {
+            // Un paquete malformado no debe tumbar el servicio.
         }
     }
 

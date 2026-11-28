@@ -1,7 +1,7 @@
 {
-  "versionCode": 16,
-  "versionName": "1.15",
+  "versionCode": 17,
+  "versionName": "1.16",
   "force": true,
-  "notes": "OBLIGATORIA: la actualización se descarga sola en segundo plano y avisa cuando está lista (un toque para instalar). Chat arreglado: el teclado ya no tapa lo que escribís. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de PC sin nuevo exe.",
+  "notes": "OBLIGATORIA: etiquetá con @ en posts y fotos; al otro le llega el aviso y al tocarlo abre la publicación. Avisos de MG y menciones juntos. La actualización se descarga sola y se instala con un toque.",
   "apkUrl": "/Nexus.apk"
 }

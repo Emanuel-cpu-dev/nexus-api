@@ -1,5 +1,5 @@
 {
-  "uiCode": 16,
-  "uiVersion": "1.15",
-  "notes": "Chat arreglado con el teclado abierto y actualizaciones de Android que se descargan solas. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de la PC sin nuevo exe."
+  "uiCode": 17,
+  "uiVersion": "1.16",
+  "notes": "Menciones con @ en posts y fotos: al etiquetado le llega el aviso y puede tocarlo para ver la publicación. Avisos de MG y menciones juntos en una sola pantalla."
 }

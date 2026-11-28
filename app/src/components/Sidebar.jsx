@@ -5,6 +5,7 @@ const NAV = [
   { id: 'home', icon: '🏠', label: 'Inicio', short: 'Inicio' },
   { id: 'friends', icon: '👥', label: 'Amigos', short: 'Amigos' },
   { id: 'messages', icon: '💬', label: 'Mensajes', short: 'Chats' },
+  { id: 'notifications', icon: '🔔', label: 'Avisos', short: 'Avisos' },
   { id: 'cine', icon: '📺', label: 'Ver juntos', short: 'Ver' },
   { id: 'communities', icon: '🌐', label: 'Comunidades', short: 'Grupos' },
   { id: 'location', icon: '📍', label: 'Ubicación', short: 'Ubicación' },
@@ -19,7 +20,7 @@ function dotClass(friend) {
 }
 
 export default function Sidebar({
-  me, view, changeView, friends, activeChat, unread = {}, onDm, onLogout,
+  me, view, changeView, friends, activeChat, unread = {}, noticeCount = 0, onDm, onLogout,
   status, onStatus, soundOn, onToggleSound
 }) {
   const messageUnread = Object.entries(unread).reduce((total, [key, count]) => (
@@ -50,6 +51,9 @@ export default function Sidebar({
             <span className="nav-label nav-label-short">{item.short || item.label}</span>
             {item.id === 'messages' && messageUnread > 0 && (
               <span className="nav-badge">{messageUnread > 99 ? '99+' : messageUnread}</span>
+            )}
+            {item.id === 'notifications' && noticeCount > 0 && (
+              <span className="nav-badge">{noticeCount > 99 ? '99+' : noticeCount}</span>
             )}
           </button>
         ))}

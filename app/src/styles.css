@@ -313,6 +313,32 @@ p { margin: 6px 0 12px; }
 .feed { display: flex; flex-direction: column; gap: 14px; }
 .feed.compact { gap: 10px; }
 .composer { display: flex; flex-direction: column; gap: 10px; }
+.composer-input-wrap { position: relative; }
+.mention-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #171925;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .45);
+  padding: 6px;
+}
+.mention-menu-title { padding: 4px 8px 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 9px;
+}
+.mention-option:hover, .mention-option.active { background: rgba(126, 138, 255, .18); }
 .composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .chip {
   display: inline-flex;
@@ -331,6 +357,16 @@ p { margin: 6px 0 12px; }
 .post { padding: 16px 18px; }
 .post-head { display: flex; align-items: center; gap: 10px; }
 .post-text { white-space: pre-wrap; margin: 14px 0; line-height: 1.55; }
+.mention-link {
+  display: inline;
+  padding: 0 2px;
+  color: #9fabff;
+  background: transparent;
+  font: inherit;
+  border-radius: 4px;
+}
+.mention-link:hover { background: rgba(126, 138, 255, .18); text-decoration: underline; }
+.post-focused { border-color: #8ea0ff; box-shadow: 0 0 0 2px rgba(142, 160, 255, .35); }
 .post-media { display: block; width: 100%; max-height: 420px; object-fit: contain; border-radius: 10px; background: #0b0c11; margin: 10px 0; }
 .file-chip { display: inline-block; margin: 8px 0; color: #aab6ff; text-decoration: none; }
 .file-chip:hover { text-decoration: underline; }

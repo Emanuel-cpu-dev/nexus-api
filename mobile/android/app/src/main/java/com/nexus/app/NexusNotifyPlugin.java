@@ -37,6 +37,7 @@ public class NexusNotifyPlugin extends Plugin {
             JSObject event = new JSObject();
             if (data.has("fromId")) event.put("fromId", data.getString("fromId"));
             if (data.has("callId")) event.put("callId", data.getString("callId"));
+            if (data.has("postId")) event.put("postId", data.getString("postId"));
             instance.notifyListeners("nexusOpen", event, true);
         } catch (Exception ignored) {
             // El evento se puede recuperar igual con consumeOpen().
@@ -51,6 +52,7 @@ public class NexusNotifyPlugin extends Plugin {
                 JSONObject data = new JSONObject(pendingOpen);
                 if (data.has("fromId")) result.put("fromId", data.getString("fromId"));
                 if (data.has("callId")) result.put("callId", data.getString("callId"));
+                if (data.has("postId")) result.put("postId", data.getString("postId"));
             } catch (Exception ignored) {
                 // Ignorar datos corruptos.
             }

@@ -19,7 +19,7 @@ import Cine from './components/Cine.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
 import Location from './components/Location.jsx';
-import Likes from './components/Likes.jsx';
+import Notifications from './components/Notifications.jsx';
 import UpdateBanner from './components/UpdateBanner.jsx';
 import UiUpdateBanner from './components/UiUpdateBanner.jsx';
 import {
@@ -82,6 +82,8 @@ export default function App() {
   const [locationRequests, setLocationRequests] = useState([]);
   const [locating, setLocating] = useState(false);
   const [unread, setUnread] = useState({});
+  const [noticeCounts, setNoticeCounts] = useState({ likes: 0, mentions: 0 });
+  const [focusPostId, setFocusPostId] = useState(null);
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [loading, setLoading] = useState(Boolean(token));
@@ -102,7 +104,7 @@ export default function App() {
   const nativeKeyboardRef = useRef(false);
 
   screenRef.current = {
-    view, activeChat, cineTarget, profileUser, profileReturnView, communityOpen
+    view, activeChat, cineTarget, profileUser, profileReturnView, communityOpen, focusPostId
   };
 
   // Navegación real como en Instagram: cada pantalla entra a una pila y el
@@ -114,6 +116,7 @@ export default function App() {
     if ('profileUser' in state) setProfileUser(state.profileUser);
     if ('profileReturnView' in state) setProfileReturnView(state.profileReturnView);
     if ('communityOpen' in state) setCommunityOpen(state.communityOpen);
+    if ('focusPostId' in state) setFocusPostId(state.focusPostId);
   }, []);
 
   const pushScreen = useCallback((patch) => {
@@ -400,6 +403,10 @@ export default function App() {
       setCommunities(data.communities || []);
       setPosts(data.posts || []);
       setUnread(data.unread || {});
+      setNoticeCounts({
+        likes: Number(data.likeCount) || 0,
+        mentions: Number(data.mentionCount) || 0
+      });
       if (data.location) setLocationState(data.location);
     } catch (error) {
       toast(error.message);
@@ -407,8 +414,20 @@ export default function App() {
     }
   }, [toast, logout]);
 
+  const openNotifications = useCallback(() => {
+    setNoticeCounts({ likes: 0, mentions: 0 });
+    pushScreen({ view: 'notifications', focusPostId: null });
+  }, [pushScreen]);
+
+  const openPost = useCallback((postId) => {
+    if (!postId) return;
+    setNoticeCounts({ likes: 0, mentions: 0 });
+    load();
+    pushScreen({ view: 'home', focusPostId: postId });
+  }, [load, pushScreen]);
+
   // "Tirar para abajo para actualizar" en el celular (como Instagram).
-  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'location', 'profile', 'likes', 'userProfile', 'settings', 'cine'].includes(view);
+  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'location', 'profile', 'likes', 'notifications', 'userProfile', 'settings', 'cine'].includes(view);
 
   useEffect(() => {
     const node = contentRef.current;
@@ -506,6 +525,10 @@ export default function App() {
         setCommunities(data.communities || []);
         setPosts(data.posts || []);
         setUnread(data.unread || {});
+        setNoticeCounts({
+          likes: Number(data.likeCount) || 0,
+          mentions: Number(data.mentionCount) || 0
+        });
       if (data.location) setLocationState(data.location);
       })
       .catch((error) => {
@@ -588,11 +611,25 @@ export default function App() {
     function onLikeNew(payload) {
       if (!payload?.user?.id || payload.user.id === me.id) return;
       const name = payload.user.displayName || 'Un amigo';
+      setNoticeCounts((current) => ({ ...current, likes: (current.likes || 0) + 1 }));
       notify({
         icon: '❤️',
         title: `${name} te puso MG`,
         body: payload.postText ? `“${payload.postText.slice(0, 80)}”` : 'En una de tus publicaciones',
-        onClick: () => pushScreen({ view: 'likes' })
+        onClick: () => openNotifications()
+      });
+    }
+    function onMentionNew(payload) {
+      if (!payload?.user?.id || payload.user.id === me.id) return;
+      const name = payload.user.displayName || 'Alguien';
+      setNoticeCounts((current) => ({ ...current, mentions: (current.mentions || 0) + 1 }));
+      notify({
+        icon: '@',
+        title: `${name} te mencionó`,
+        body: payload.postText
+          ? `“${payload.postText.slice(0, 80)}”`
+          : payload.hasFile ? 'Te etiquetó en una foto' : 'En una publicación',
+        onClick: () => openPost(payload.postId)
       });
     }
     function onCallInvite(payload) {
@@ -658,6 +695,7 @@ export default function App() {
     socket.on('friend:accepted', onFriendAccepted);
     socket.on('dm:message', onDmMessage);
     socket.on('like:new', onLikeNew);
+    socket.on('mention:new', onMentionNew);
     socket.on('call:invite', onCallInvite);
     socket.on('call:accepted', onCallAccepted);
     socket.on('call:rejected', onCallRejected);
@@ -673,6 +711,7 @@ export default function App() {
       socket.off('friend:accepted', onFriendAccepted);
       socket.off('dm:message', onDmMessage);
       socket.off('like:new', onLikeNew);
+      socket.off('mention:new', onMentionNew);
       socket.off('call:invite', onCallInvite);
       socket.off('call:accepted', onCallAccepted);
       socket.off('call:rejected', onCallRejected);
@@ -682,7 +721,7 @@ export default function App() {
       socket.off('location:shares', onLocationShares);
       socket.off('location:update', onLocationUpdate);
     };
-  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate, pushScreen]);
+  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate, pushScreen, openNotifications, openPost]);
 
   const changeView = useCallback((next) => {
     const generalCine = { type: 'general', id: 'general', name: 'Sala general' };
@@ -694,11 +733,12 @@ export default function App() {
         activeChat: null,
         communityOpen: null,
         profileUser: null,
+        focusPostId: null,
         cineTarget: next === 'cine' ? generalCine : cineTarget
       });
       return;
     }
-    const patch = { view: next };
+    const patch = { view: next, focusPostId: null };
     // Al entrar a "Ver juntos" desde el menú sin objetivo, usar la sala general.
     if (next === 'cine' && !cineTarget) patch.cineTarget = generalCine;
     // En el celular, tocar "Chats" desde otra sección debe mostrar la lista.
@@ -759,7 +799,8 @@ export default function App() {
       const friend = friends.find((item) => item.id === opened.fromId);
       if (friend) openDm(friend);
     }
-  }, [token, me?.id, friends, openDm]);
+    if (opened?.postId) openPost(opened.postId);
+  }, [token, me?.id, friends, openDm, openPost]);
 
   useEffect(() => {
     checkNativeOpen();
@@ -806,8 +847,6 @@ export default function App() {
       toast(error.message);
     }
   }, [toast, view, profileReturnView, pushScreen]);
-
-  const openLikes = useCallback(() => pushScreen({ view: 'likes' }), [pushScreen]);
 
   const openCineForFriend = useCallback(async (friend) => {
     if (!friend?.id) return;
@@ -1024,6 +1063,7 @@ export default function App() {
         friends={friends}
         activeChat={activeChat}
         unread={unread}
+        noticeCount={noticeCounts.likes + noticeCounts.mentions}
         onDm={openDm}
         onLogout={logout}
         status={myStatus}
@@ -1050,7 +1090,14 @@ export default function App() {
               </div>
               <button type="button" className="primary" onClick={() => changeView('friends')}>👥 Mis amigos</button>
             </div>
-            <Feed posts={posts} onProfile={openProfile} me={me} onFriendsChanged={load} />
+            <Feed
+              posts={posts}
+              friends={friends}
+              focusPostId={focusPostId}
+              onProfile={openProfile}
+              me={me}
+              onFriendsChanged={load}
+            />
           </div>
         )}
 
@@ -1121,7 +1168,14 @@ export default function App() {
             <button type="button" className="ghost" onClick={handleBack}>← Todas las comunidades</button>
             <h2>🌐 {communityOpen.name}</h2>
             <div className="community-detail-grid">
-              <Feed communityId={communityOpen.id} compact onProfile={openProfile} me={me} onFriendsChanged={load} />
+              <Feed
+                communityId={communityOpen.id}
+                compact
+                friends={friends}
+                onProfile={openProfile}
+                me={me}
+                onFriendsChanged={load}
+              />
               <Chat
                 chat={resolvedChat}
                 me={me}
@@ -1152,7 +1206,7 @@ export default function App() {
         {view === 'profile' && (
           <Profile
             me={me}
-            onLikes={openLikes}
+            onLikes={openNotifications}
             onUpdated={(user) => {
               setMe(user);
               setFriends((current) => current.map((friend) => (friend.id === user.id ? { ...friend, ...user } : friend)));
@@ -1160,8 +1214,8 @@ export default function App() {
           />
         )}
 
-        {view === 'likes' && (
-          <Likes onBack={handleBack} onProfile={openProfile} />
+        {(view === 'likes' || view === 'notifications') && (
+          <Notifications onBack={handleBack} onProfile={openProfile} onPost={openPost} />
         )}
 
         {view === 'userProfile' && profileUser && (

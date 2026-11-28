@@ -117,18 +117,21 @@ public class MainActivity extends BridgeActivity {
         if (intent == null) return;
         String fromId = intent.getStringExtra("nexusFromId");
         String callId = intent.getStringExtra("nexusCallId");
-        if (fromId == null && callId == null) return;
+        String postId = intent.getStringExtra("nexusPostId");
+        if (fromId == null && callId == null && postId == null) return;
 
         JSONObject detail = new JSONObject();
         try {
             if (fromId != null) detail.put("fromId", fromId);
             if (callId != null) detail.put("callId", callId);
+            if (postId != null) detail.put("postId", postId);
         } catch (Exception ignored) {
             return;
         }
         NexusNotifyPlugin.setPendingOpen(detail.toString());
         intent.removeExtra("nexusFromId");
         intent.removeExtra("nexusCallId");
+        intent.removeExtra("nexusPostId");
     }
 
     // La pila de pantallas vive en React; Android solo le avisa. Cuando React

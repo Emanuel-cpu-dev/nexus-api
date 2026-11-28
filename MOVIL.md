@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app la **descarga sola en segundo plano** y muestra un aviso cuando ya está lista: se toca **Instalar** (o la notificación) y se abre el instalador. Android siempre pide la confirmación final; ninguna app normal puede saltearla. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.15. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.16. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -32,7 +32,7 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Ver juntos, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.15. La actualización 1.15 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
+- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.16. La actualización 1.16 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
 - ✅ Botón **atrás** como en Instagram/Facebook/LinkedIn: vuelve al chat, al perfil o a la pantalla anterior y recién en el **Inicio** sale de la app.
 - ✅ **Ubicación en tiempo real** en la sección 📍: un amigo te la muestra solo si te da permiso; podés pedirla, ver el mapa, revocar el acceso o dejar de compartir la tuya.
 - ✅ Nexus queda **dentro de un contenedor**, no en pantalla completa del sistema: arriba y abajo se reserva el espacio de la hora, la señal, el WiFi y los 3 botones del Android. Ni los títulos ni el menú inferior quedan tapados.
@@ -40,7 +40,8 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 - ✅ El teclado del celular ya no tapa lo que escribís: el campo del chat queda arriba del teclado y la interfaz se achica con él.
 - ✅ Desde el Inicio se puede tocar **➕ Agregar** en la publicación de alguien para mandarle la solicitud de amistad sin entrar a su perfil.
 - ✅ Se pueden **repostear** publicaciones con **🔁**; aparece la original incrustada y se puede deshacer tocando de nuevo.
-- ✅ En **Mi perfil → ❤️ Ver quién te puso MG** aparece la lista de personas que le dieron MG a tus publicaciones, y llega un aviso cuando alguien lo hace.
+- ✅ En **🔔 Avisos** (menú y Mi perfil) aparecen juntos los MG y las menciones, con badge de cantidad.
+- ✅ Escribí **@** en una publicación o en el pie de una foto para etiquetar a alguien: aparecen sugerencias, al etiquetado le llega un aviso y al tocarlo se abre la publicación.
 - ✅ Si una llamada se corta por la red, se renegocia sola; al prender la cámara de nuevo se vuelve a abrir aunque se haya apagado antes.
 - ✅ La PC se actualiza con el cartel **Actualizar** dentro de la app, sin descargar otro `.exe`.
 - ❌ **Compartir pantalla** no está disponible en el WebView de Android; la app muestra un aviso claro. Para compartir pantalla se usa la versión de escritorio.
