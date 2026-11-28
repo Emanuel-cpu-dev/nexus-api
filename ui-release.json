@@ -1,5 +1,5 @@
 {
-  "uiCode": 15,
-  "uiVersion": "1.14",
-  "notes": "Arreglado el chat con el teclado abierto: el campo y lo que escribís se ven encima del teclado. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de la PC sin nuevo exe."
+  "uiCode": 16,
+  "uiVersion": "1.15",
+  "notes": "Chat arreglado con el teclado abierto y actualizaciones de Android que se descargan solas. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de la PC sin nuevo exe."
 }

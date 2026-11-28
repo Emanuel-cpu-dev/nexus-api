@@ -1,7 +1,7 @@
 {
-  "versionCode": 15,
-  "versionName": "1.14",
+  "versionCode": 16,
+  "versionName": "1.15",
   "force": true,
-  "notes": "OBLIGATORIA: corregido el doble ajuste del teclado en el chat: la pantalla ya no se deforma y se ve lo que escribís. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de PC sin nuevo exe.",
+  "notes": "OBLIGATORIA: la actualización se descarga sola en segundo plano y avisa cuando está lista (un toque para instalar). Chat arreglado: el teclado ya no tapa lo que escribís. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de PC sin nuevo exe.",
   "apkUrl": "/Nexus.apk"
 }

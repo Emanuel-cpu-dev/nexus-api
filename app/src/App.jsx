@@ -22,7 +22,10 @@ import Location from './components/Location.jsx';
 import Likes from './components/Likes.jsx';
 import UpdateBanner from './components/UpdateBanner.jsx';
 import UiUpdateBanner from './components/UiUpdateBanner.jsx';
-import { checkForUpdate, getNativeVersion, installUpdate } from './updater.js';
+import {
+  checkForUpdate, getNativeVersion, installUpdate, prepareUpdate,
+  getPreparedUpdate, installPreparedUpdate, onUpdateReady, isNativeApp
+} from './updater.js';
 import { checkUiUpdate, applyUiUpdate } from './uiUpdate.js';
 import { playSound, unlockSound } from './sound.js';
 import {
@@ -88,6 +91,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [update, setUpdate] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [updateReady, setUpdateReady] = useState(false);
   const [uiUpdate, setUiUpdate] = useState(null);
   const contentRef = useRef(null);
   const pullRef = useRef(0);
@@ -227,6 +231,15 @@ export default function App() {
     // Una obligatoria nunca se puede descartar, aunque una versión vieja guardara el dismiss.
     if (found.force) localStorage.removeItem('nexus_dismissed_update');
     setUpdate(found);
+    // En Android la descarga arranca sola, sin que el usuario tenga que esperar.
+    if (isNativeApp()) {
+      getPreparedUpdate().then((status) => {
+        if (status?.versionCode >= found.versionCode && status?.ready) setUpdateReady(true);
+      });
+      prepareUpdate(found).then((status) => {
+        if (status?.ready || status?.versionCode >= found.versionCode) setUpdateReady(Boolean(status?.ready));
+      });
+    }
     if (found.force && Number(localStorage.getItem('nexus_native_update_notified')) < found.versionCode) {
       localStorage.setItem('nexus_native_update_notified', String(found.versionCode));
       showNativeUpdate(found);
@@ -252,6 +265,15 @@ export default function App() {
     };
   }, [applyFoundUpdate]);
 
+  useEffect(() => {
+    let handle;
+    onUpdateReady(() => {
+      setUpdateReady(true);
+      toast('La actualización ya está descargada. Tocá Instalar.');
+    }).then((listener) => { handle = listener; });
+    return () => handle?.remove?.();
+  }, [toast]);
+
   const dismissUpdate = useCallback(() => {
     if (update?.force) return;
     if (update) localStorage.setItem('nexus_dismissed_update', String(update.versionCode));
@@ -260,17 +282,27 @@ export default function App() {
 
   const applyUpdate = useCallback(async () => {
     if (!update || updating) return;
+    if (isNativeApp() && !updateReady) {
+      toast('Ya se está descargando en segundo plano. Te avisamos cuando esté lista.');
+      return;
+    }
     setUpdating(true);
     try {
       await installUpdate(update);
-      toast('Descargando la actualización… Se instalará sola cuando termine.');
-      setUpdate(null);
+      if (isNativeApp()) {
+        // Android abre el instalador; no descartamos el cartel hasta que el
+        // usuario confirme, por si vuelve desde la pantalla del sistema.
+        setUpdateReady(false);
+      } else {
+        toast('Descargando la actualización…');
+        setUpdate(null);
+      }
     } catch (error) {
       toast(error.message || 'No se pudo iniciar la actualización.');
     } finally {
       setUpdating(false);
     }
-  }, [update, updating, toast]);
+  }, [update, updating, updateReady, toast]);
 
   const changeStatus = useCallback((next) => {
     setMyStatus(next);
@@ -949,7 +981,8 @@ export default function App() {
     <>
       <UpdateBanner
         update={update}
-        busy={updating}
+        busy={isNativeApp() ? updating || !updateReady : updating}
+        ready={isNativeApp() && updateReady}
         onInstall={applyUpdate}
         onDismiss={dismissUpdate}
       />

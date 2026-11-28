@@ -537,6 +537,9 @@ p { margin: 6px 0 12px; }
 @media (max-width: 640px) {
   /* --kb solo descuenta la parte del teclado que el WebView no achicó. */
   .app-shell { flex-direction: column; height: calc(100dvh - var(--kb, 0px)); }
+  /* Con el teclado abajo, el menú estorba: dejamos toda la altura al chat. */
+  body.keyboard-open .sidebar { display: none; }
+  body.keyboard-open .toast-stack { display: none; }
 
   .sidebar {
     order: 2;
@@ -624,15 +627,16 @@ p { margin: 6px 0 12px; }
   .messages-layout.mobile-chat-open .chat-list { display: none; }
   .messages-layout.mobile-chat-open .chat-panel { display: flex; }
   .chat-panel.compact { min-height: 320px; }
-  .chat-header { padding: 10px 12px; }
+  .chat-header { padding: 10px 12px; flex: 0 0 auto; }
   .chat-back { display: grid; }
-  .messages { padding: 12px; gap: 10px; }
+  .messages { padding: 12px; gap: 10px; min-height: 0; flex: 1 1 auto; }
   .bubble-row { max-width: 88%; }
   .bubble-media { max-width: 70vw; max-height: 38vh; }
   .chat-composer {
     position: sticky;
     bottom: 0;
     z-index: 6;
+    flex: 0 0 auto;
     background: var(--card);
     padding: 10px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));

@@ -31,11 +31,56 @@ export async function checkForUpdate() {
   }
 }
 
-export async function installUpdate(update) {
-  const url = new URL(update?.apkUrl || '/Nexus.apk', getServerUrl()).toString();
-  if (Capacitor.isNativePlatform()) {
-    return Updater.downloadAndInstall({ url });
+export function onUpdateReady(listener) {
+  if (!Capacitor.isNativePlatform()) return Promise.resolve({ remove() {} });
+  return Updater.addListener('updateReady', listener);
+}
+
+function updateParams(update) {
+  return {
+    url: new URL(update?.apkUrl || '/Nexus.apk', getServerUrl()).toString(),
+    versionCode: Number(update?.versionCode) || 0,
+    versionName: update?.versionName || ''
+  };
+}
+
+// Arranca la descarga en segundo plano. El plugin evita repetirla si esa misma
+// versión ya está guardada, así que se puede llamar en cada chequeo sin miedo.
+export async function prepareUpdate(update) {
+  if (!Capacitor.isNativePlatform()) return { ready: false, started: false };
+  try {
+    return await Updater.prepareUpdate(updateParams(update)) || { ready: false };
+  } catch {
+    return { ready: false };
   }
-  window.open(url, '_blank');
+}
+
+export async function getPreparedUpdate() {
+  if (!Capacitor.isNativePlatform()) return { ready: false };
+  try {
+    return await Updater.getStatus() || { ready: false };
+  } catch {
+    return { ready: false };
+  }
+}
+
+// Abre el instalador con un toque. Android sigue pidiendo confirmación: es una
+// restricción del sistema, no se puede saltar desde una app normal.
+export async function installPreparedUpdate() {
+  if (!Capacitor.isNativePlatform()) return { started: false };
+  return Updater.installPrepared();
+}
+
+export async function installUpdate(update) {
+  if (Capacitor.isNativePlatform()) {
+    const status = await getPreparedUpdate();
+    if (status?.versionCode >= Number(update?.versionCode) && status?.ready) {
+      return installPreparedUpdate();
+    }
+    const started = await prepareUpdate(update);
+    if (started?.ready) return installPreparedUpdate();
+    return started;
+  }
+  window.open(new URL(update?.apkUrl || '/Nexus.apk', getServerUrl()).toString(), '_blank');
   return { started: true };
 }

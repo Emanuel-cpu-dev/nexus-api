@@ -398,14 +398,20 @@ public class NexusMessagingService extends Service {
     private void showUpdateNotification(String versionName, String notes) {
         if (versionName == null) versionName = "";
         if (notes == null) notes = "";
-        String detail = "Nexus " + versionName + " está listo. Abrí la app y tocá Actualizar.";
-        if (!notes.isEmpty()) detail = notes + " Abrí la app y tocá Actualizar.";
+        boolean ready = UpdaterPlugin.isPrepared(this);
+        String detail = ready
+                ? "Ya está descargada. Tocá para instalar la versión " + versionName + "."
+                : "Abrí la app para descargarla en segundo plano.";
+        if (!ready && !notes.isEmpty()) detail = notes + " " + detail;
+        PendingIntent open = ready
+                ? UpdaterPlugin.readyPendingIntent(this)
+                : openApp(null, null, 5000);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CH_UPDATES)
-                .setContentTitle("⬆️ Actualización obligatoria de Nexus")
+                .setContentTitle("⬆️ Actualización de Nexus")
                 .setContentText(detail)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(detail))
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentIntent(openApp(null, null, 5000))
+                .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_RECOMMENDATION)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setAutoCancel(true)

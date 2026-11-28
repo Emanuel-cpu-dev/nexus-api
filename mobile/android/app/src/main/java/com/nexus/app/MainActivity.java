@@ -55,8 +55,8 @@ public class MainActivity extends BridgeActivity {
         View webView = getBridge().getWebView();
         webView.setFitsSystemWindows(false);
         // Aplicamos los insets en el CONTENEDOR de la actividad, no en el WebView:
-        // así Capacitor/CoordinatorLayout no puede consumirlos antes y el WebView
-        // se reduce de verdad arriba y abajo.
+        // así Capacitor/CoordinatorLayout no puede consumirlos antes. La altura
+        // del teclado se pasa al CSS como píxeles de densidad (dp).
         View content = findViewById(android.R.id.content);
         int mask = WindowInsetsCompat.Type.systemBars()
                 | WindowInsetsCompat.Type.systemGestures()
@@ -69,10 +69,13 @@ public class MainActivity extends BridgeActivity {
                             | WindowInsetsCompat.Type.displayCutout());
             androidx.core.graphics.Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            // El WebView no se achica con el teclado (los insets se consumen acá),
-            // así que le avisamos a React cuánto debe bajar el composer. Restamos
-            // la barra de navegación para no dejar un hueco entre campo y teclado.
-            sendKeyboardHeight(Math.max(0, ime.bottom - bars.bottom));
+            // Los insets vienen en píxeles físicos, pero el CSS del WebView usa
+            // píxeles de densidad (dp). Sin esta conversión achicamos el doble y
+            // el chat queda debajo del teclado. Restamos la barra de navegación
+            // para no dejar un hueco entre campo y teclado.
+            float density = getResources().getDisplayMetrics().density;
+            int heightDp = Math.round(Math.max(0, ime.bottom - bars.bottom) / density);
+            sendKeyboardHeight(heightDp);
             return WindowInsetsCompat.CONSUMED;
         });
         ViewCompat.requestApplyInsets(content);
