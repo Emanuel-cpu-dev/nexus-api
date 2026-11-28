@@ -112,6 +112,12 @@ public class NexusNotifyPlugin extends Plugin {
         call.resolve();
     }
 
+    // Si el usuario concede POST_NOTIFICATIONS después de arrancar, el servicio
+    // ya tiene el token guardado: lo aseguramos sin borrar avisos existentes.
+    static void resumeService(Context context) {
+        if (NexusPrefs.hasToken(context)) NexusMessagingService.start(context);
+    }
+
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
         Context context = getContext();

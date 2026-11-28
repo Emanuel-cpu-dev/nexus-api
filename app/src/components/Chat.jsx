@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, uploadFile } from '../api.js';
+import { api, openOnceImage, uploadFile } from '../api.js';
 import { fileUrl } from '../config.js';
 import { getSocket } from '../socket.js';
 import { cx, formatSize, isImage, isVideo, timeAgo } from '../utils.js';
@@ -9,9 +9,10 @@ function dmRoomFor(a, b) {
   return `dm:${[a, b].sort().join(':')}`;
 }
 
-function MessageBubble({ message, me }) {
+function MessageBubble({ message, me, unlockedUrl, onOpenOnce }) {
   const mine = message.fromId === me?.id;
   const file = message.file;
+  const once = Boolean(message.viewOnce);
   return (
     <div className={cx('bubble-row', mine && 'mine')}>
       {!mine && (
@@ -24,12 +25,25 @@ function MessageBubble({ message, me }) {
           </div>
         )}
         {message.text && <div className="bubble-text">{message.text}</div>}
-        {file && (
+        {once && !mine && !unlockedUrl && (
+          message.viewed
+            ? <div className="tiny muted">👁️ Esta foto ya fue vista</div>
+            : <button type="button" className="ghost small" onClick={() => onOpenOnce?.(message)}>
+                👁️ Ver foto (una sola vez)
+              </button>
+        )}
+        {unlockedUrl && (
+          <img className="bubble-media" src={unlockedUrl} alt="Foto" />
+        )}
+        {file && (!once || mine) && (
           isImage(file.mime)
             ? <img className="bubble-media" src={fileUrl(file.url)} alt={file.name} />
             : isVideo(file.mime)
               ? <video className="bubble-media" src={fileUrl(file.url)} controls />
               : <a className="file-chip" href={fileUrl(file.url)} target="_blank" rel="noreferrer">📎 {file.name} ({formatSize(file.size)})</a>
+        )}
+        {once && mine && (
+          <div className="tiny muted">{message.viewed ? '👁️ Vista' : '👁️ Una sola vez'}</div>
         )}
         <div className="tiny muted bubble-time">
           {timeAgo(message.createdAt)}
@@ -53,15 +67,50 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
   const [text, setText] = useState('');
   const [fileId, setFileId] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [viewOnce, setViewOnce] = useState(false);
+  const [unlocked, setUnlocked] = useState({});
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState('');
   const [remoteTyping, setRemoteTyping] = useState(false);
   const bottomRef = useRef(null);
   const fileInput = useRef(null);
+  const cameraInput = useRef(null);
+  const unlockedUrls = useRef({});
   const typingTimer = useRef(null);
   const typingSentAt = useRef(0);
 
+  function releaseUnlocked() {
+    for (const url of Object.values(unlockedUrls.current)) {
+      if (url) URL.revokeObjectURL(url);
+    }
+    unlockedUrls.current = {};
+    setUnlocked({});
+  }
+
+  const openOnce = useCallback(async (message) => {
+    if (unlockedUrls.current[message.id]) return;
+    setError('');
+    try {
+      const url = await openOnceImage(message.id);
+      unlockedUrls.current[message.id] = url;
+      setUnlocked({ ...unlockedUrls.current });
+      setMessages((current) => current.map((item) => item.id === message.id
+        ? { ...item, viewed: true }
+        : item));
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    for (const url of Object.values(unlockedUrls.current)) {
+      if (url) URL.revokeObjectURL(url);
+    }
+    unlockedUrls.current = {};
+  }, []);
+
   const load = useCallback(async () => {
+    releaseUnlocked();
     setMessages([]);
     setError('');
     if (!canChat) return;
@@ -151,7 +200,11 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
       return;
     }
     setError('');
-    const payload = { text: value, fileId };
+    const payload = {
+      text: value,
+      fileId,
+      viewOnce: Boolean(validDm && fileId && viewOnce)
+    };
     const event = validDm ? 'dm:send' : 'community:send';
     const target = validDm ? { to: chat.userId } : { communityId: chat.communityId };
     socket.emit(event, { ...target, ...payload }, (response) => {
@@ -160,6 +213,7 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
     setText('');
     setFileId(null);
     setFileName('');
+    setViewOnce(false);
   }
 
   async function attach(event) {
@@ -212,7 +266,15 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
           </div>
         )}
         {canChat && messages.length === 0 && <p className="muted empty-state">Sin mensajes todavía. ¡Escribe el primero!</p>}
-        {messages.map((message) => <MessageBubble key={message.id} message={message} me={me} />)}
+        {messages.map((message) => (
+          <MessageBubble
+            key={message.id}
+            message={message}
+            me={me}
+            unlockedUrl={unlocked[message.id]}
+            onOpenOnce={openOnce}
+          />
+        ))}
         {remoteTyping && <div className="tiny muted typing-line">{chat.user?.displayName || 'Alguien'} está escribiendo…</div>}
         <div ref={bottomRef} />
       </div>
@@ -220,10 +282,34 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
       {error && <div className="error-box">{error}</div>}
 
       <div className="chat-composer">
-        {fileId && <div className="chip">📎 {fileName} <button type="button" onClick={() => { setFileId(null); setFileName(''); }}>✕</button></div>}
+        {fileId && (
+          <div className="chip">
+            📎 {fileName}
+            <button type="button" onClick={() => { setFileId(null); setFileName(''); setViewOnce(false); }}>✕</button>
+          </div>
+        )}
+        {fileId && validDm && (
+          <label className="tiny chip view-once-toggle">
+            <input
+              type="checkbox"
+              checked={viewOnce}
+              onChange={(event) => setViewOnce(event.target.checked)}
+            />{' '}
+            👁️ Una sola vez
+          </label>
+        )}
         {progress !== null && <div className="progress"><div style={{ width: `${progress}%` }} /></div>}
-        <input ref={fileInput} type="file" hidden onChange={attach} />
-        <button type="button" className="icon-btn" title="Adjuntar" disabled={!canChat} onClick={() => fileInput.current?.click()}>📎</button>
+        <input ref={fileInput} type="file" accept="image/*" hidden onChange={attach} />
+        <input
+          ref={cameraInput}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={attach}
+        />
+        <button type="button" className="icon-btn" title="Foto de la galería" disabled={!canChat} onClick={() => fileInput.current?.click()}>🖼️</button>
+        <button type="button" className="icon-btn" title="Tomar foto" disabled={!canChat} onClick={() => cameraInput.current?.click()}>📷</button>
         <input
           type="text"
           value={text}

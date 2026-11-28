@@ -46,10 +46,11 @@ import io.socket.client.Socket;
  */
 public class NexusMessagingService extends Service {
     private static final String CH_FOREGROUND = "nexus_foreground";
-    // Canales nuevos: los canales de Android no cambian de sonido una vez creados.
-    private static final String CH_MESSAGES = "nexus_messages_v2";
-    private static final String CH_SOCIAL = "nexus_social_v2";
-    private static final String CH_CALLS = "nexus_calls_v2";
+    // Los canales de Android no cambian de sonido una vez creados. v3 reemplaza
+    // a los v2 que pudieron quedar silenciosos en instalaciones anteriores.
+    private static final String CH_MESSAGES = "nexus_messages_v3";
+    private static final String CH_SOCIAL = "nexus_social_v3";
+    private static final String CH_CALLS = "nexus_calls_v3";
     private static final String CH_MESSAGES_SILENT = "nexus_messages_silent";
     private static final String CH_CALLS_SILENT = "nexus_calls_silent";
     private static final String CH_UPDATES = "nexus_updates";
@@ -154,9 +155,13 @@ public class NexusMessagingService extends Service {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager == null) return;
 
-        // Canales viejos sin sonido: se eliminan para que no queden en Ajustes.
+        // Canales viejos (sin sonido o reemplazados): se eliminan para que no
+        // queden en Ajustes ni confundan al usuario.
         manager.deleteNotificationChannel("nexus_messages");
         manager.deleteNotificationChannel("nexus_calls");
+        manager.deleteNotificationChannel("nexus_messages_v2");
+        manager.deleteNotificationChannel("nexus_social_v2");
+        manager.deleteNotificationChannel("nexus_calls_v2");
 
         NotificationChannel foreground = new NotificationChannel(
                 CH_FOREGROUND, "Nexus en segundo plano", NotificationManager.IMPORTANCE_LOW);
@@ -252,6 +257,7 @@ public class NexusMessagingService extends Service {
             String name = author != null ? author.optString("displayName", "") : "";
             if (name.isEmpty()) name = "Nuevo mensaje";
             String text = message.optString("text", "");
+            if (text.isEmpty() && message.optBoolean("viewOnce")) text = "📷 Foto (una sola vez)";
             if (text.isEmpty() && message.optJSONObject("file") != null) text = "📎 Archivo adjunto";
             if (text.isEmpty()) text = "Nuevo mensaje";
 

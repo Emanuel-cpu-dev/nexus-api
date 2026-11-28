@@ -147,5 +147,9 @@ public class MainActivity extends BridgeActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         NexusLocationPlugin.onPermissionsResult(requestCode, grantResults);
+        if (requestCode == 2001 && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            NexusNotifyPlugin.resumeService(this);
+        }
     }
 }

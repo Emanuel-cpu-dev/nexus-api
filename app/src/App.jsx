@@ -16,6 +16,8 @@ import Profile from './components/Profile.jsx';
 import Settings from './components/Settings.jsx';
 import CallOverlay from './components/CallOverlay.jsx';
 import Cine from './components/Cine.jsx';
+import StoryBar from './components/StoryBar.jsx';
+import StoryViewer from './components/StoryViewer.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
 import Location from './components/Location.jsx';
@@ -83,6 +85,9 @@ export default function App() {
   const [locating, setLocating] = useState(false);
   const [unread, setUnread] = useState({});
   const [noticeCounts, setNoticeCounts] = useState({ likes: 0, mentions: 0 });
+  const [stories, setStories] = useState([]);
+  const [storyCount, setStoryCount] = useState(0);
+  const [storyOpen, setStoryOpen] = useState(null);
   const [focusPostId, setFocusPostId] = useState(null);
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -323,10 +328,14 @@ export default function App() {
 
   // El servicio nativo necesita el token y las preferencias para avisar en segundo plano.
   useEffect(() => {
-    if (!token || !me?.id) {
+    if (!token) {
       stopNative();
       return;
     }
+    // Ojo: al arrancar `me` todavía es null. No podemos llamar a stopNative()
+    // acá porque borra el token guardado y apaga el servicio justo cuando el
+    // usuario minimiza la app durante el bootstrap.
+    if (!me?.id) return;
     configureNative({
       token,
       userId: me.id,
@@ -388,6 +397,9 @@ export default function App() {
     setCommunityOpen(null);
     setLocationRequests([]);
     setLocationState({ sharedWith: [], sharedBy: [], positions: {} });
+    setStories([]);
+    setStoryCount(0);
+    setStoryOpen(null);
     setCall(null);
     setView('home');
     historyRef.current = [];
@@ -407,6 +419,8 @@ export default function App() {
         likes: Number(data.likeCount) || 0,
         mentions: Number(data.mentionCount) || 0
       });
+      setStories(data.stories || []);
+      setStoryCount(Number(data.storyCount) || 0);
       if (data.location) setLocationState(data.location);
     } catch (error) {
       toast(error.message);
@@ -414,17 +428,33 @@ export default function App() {
     }
   }, [toast, logout]);
 
-  const openNotifications = useCallback(() => {
+  const refreshStories = useCallback(async () => {
+    try {
+      const data = await api('/stories');
+      setStories(data.groups || []);
+      setStoryCount(Number(data.storyCount) || 0);
+    } catch {
+      // Las historias son opcionales: no rompemos el resto de la app.
+    }
+  }, []);
+
+  // Marcamos la lectura en el servidor para que el badge no vuelva a aparecer
+  // después de recargar. Es el mismo comportamiento que Instagram.
+  const markNoticesRead = useCallback(() => {
     setNoticeCounts({ likes: 0, mentions: 0 });
+    api('/notifications/read', { method: 'POST' }).then(load).catch(() => {});
+  }, [load]);
+
+  const openNotifications = useCallback(() => {
+    markNoticesRead();
     pushScreen({ view: 'notifications', focusPostId: null });
-  }, [pushScreen]);
+  }, [markNoticesRead, pushScreen]);
 
   const openPost = useCallback((postId) => {
     if (!postId) return;
-    setNoticeCounts({ likes: 0, mentions: 0 });
-    load();
+    markNoticesRead();
     pushScreen({ view: 'home', focusPostId: postId });
-  }, [load, pushScreen]);
+  }, [markNoticesRead, pushScreen]);
 
   // "Tirar para abajo para actualizar" en el celular (como Instagram).
   const pullEnabled = ['home', 'friends', 'messages', 'communities', 'location', 'profile', 'likes', 'notifications', 'userProfile', 'settings', 'cine'].includes(view);
@@ -529,6 +559,8 @@ export default function App() {
           likes: Number(data.likeCount) || 0,
           mentions: Number(data.mentionCount) || 0
         });
+        setStories(data.stories || []);
+        setStoryCount(Number(data.storyCount) || 0);
       if (data.location) setLocationState(data.location);
       })
       .catch((error) => {
@@ -603,7 +635,9 @@ export default function App() {
         notify({
           icon: '💬',
           title: message.author?.displayName || 'Nuevo mensaje',
-          body: message.text || '📎 Archivo adjunto',
+          body: message.viewOnce
+            ? '📷 Foto (una sola vez)'
+            : message.text || '📎 Archivo adjunto',
           onClick: friend ? () => openDm(friend) : undefined
         }, 'message');
       }
@@ -631,6 +665,23 @@ export default function App() {
           : payload.hasFile ? 'Te etiquetó en una foto' : 'En una publicación',
         onClick: () => openPost(payload.postId)
       });
+    }
+    function onStoryNew(payload) {
+      const name = payload?.user?.displayName || payload?.story?.user?.displayName || 'Un amigo';
+      refreshStories();
+      notify({
+        icon: '📖',
+        title: `${name} publicó una historia`,
+        body: 'Tocala para verla',
+        onClick: async () => {
+          await refreshStories();
+          setStoryOpen({ userId: payload?.story?.user?.id, storyId: payload?.story?.id });
+        }
+      }, 'message');
+    }
+    function onStoryViewed(payload) {
+      if (!payload?.viewer?.id || payload.viewer.id === me.id) return;
+      toast(`👁️ ${payload.viewer.displayName || 'Un amigo'} vio tu historia`);
     }
     function onCallInvite(payload) {
       notify({
@@ -696,6 +747,8 @@ export default function App() {
     socket.on('dm:message', onDmMessage);
     socket.on('like:new', onLikeNew);
     socket.on('mention:new', onMentionNew);
+    socket.on('story:new', onStoryNew);
+    socket.on('story:viewed', onStoryViewed);
     socket.on('call:invite', onCallInvite);
     socket.on('call:accepted', onCallAccepted);
     socket.on('call:rejected', onCallRejected);
@@ -712,6 +765,8 @@ export default function App() {
       socket.off('dm:message', onDmMessage);
       socket.off('like:new', onLikeNew);
       socket.off('mention:new', onMentionNew);
+      socket.off('story:new', onStoryNew);
+      socket.off('story:viewed', onStoryViewed);
       socket.off('call:invite', onCallInvite);
       socket.off('call:accepted', onCallAccepted);
       socket.off('call:rejected', onCallRejected);
@@ -721,10 +776,11 @@ export default function App() {
       socket.off('location:shares', onLocationShares);
       socket.off('location:update', onLocationUpdate);
     };
-  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate, pushScreen, openNotifications, openPost]);
+  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate, pushScreen, openNotifications, openPost, refreshStories]);
 
   const changeView = useCallback((next) => {
     const generalCine = { type: 'general', id: 'general', name: 'Sala general' };
+    if (next === 'notifications') markNoticesRead();
     if (next === view) {
       const hasDetail = Boolean(activeChat || communityOpen || profileUser
         || (next === 'cine' && cineTarget?.id !== 'general'));
@@ -746,7 +802,7 @@ export default function App() {
     if (next !== 'communities') patch.communityOpen = null;
     if (next !== 'userProfile') patch.profileUser = null;
     pushScreen(patch);
-  }, [cineTarget, view, activeChat, communityOpen, profileUser, pushScreen]);
+  }, [cineTarget, view, activeChat, communityOpen, profileUser, pushScreen, markNoticesRead]);
 
   const openDm = useCallback(async (friend, nextView = 'messages') => {
     if (!friend?.id) return;
@@ -1064,6 +1120,7 @@ export default function App() {
         activeChat={activeChat}
         unread={unread}
         noticeCount={noticeCounts.likes + noticeCounts.mentions}
+        storyCount={storyCount}
         onDm={openDm}
         onLogout={logout}
         status={myStatus}
@@ -1090,6 +1147,13 @@ export default function App() {
               </div>
               <button type="button" className="primary" onClick={() => changeView('friends')}>👥 Mis amigos</button>
             </div>
+            <StoryBar
+              groups={stories}
+              me={me}
+              onOpen={(userId, storyId) => setStoryOpen({ userId, storyId })}
+              onChange={refreshStories}
+              onError={(message) => toast(message)}
+            />
             <Feed
               posts={posts}
               friends={friends}
@@ -1244,6 +1308,17 @@ export default function App() {
           me={me}
           friends={friends}
           onClose={() => setCall(null)}
+        />
+      )}
+
+      {storyOpen && (
+        <StoryViewer
+          groups={stories}
+          me={me}
+          initial={storyOpen}
+          onClose={() => setStoryOpen(null)}
+          onChange={refreshStories}
+          onProfile={openProfile}
         />
       )}
 

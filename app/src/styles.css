@@ -411,6 +411,49 @@ p { margin: 6px 0 12px; }
 .like-row .post-author { width: 100%; }
 .like-post { padding-left: 42px; overflow-wrap: anywhere; }
 
+/* ---------- Historias ---------- */
+.avatar.sm { width: 54px; height: 54px; font-size: 18px; }
+.story-bar { padding: 12px; margin-bottom: 14px; }
+.story-bar-list { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 4px; }
+.story-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: transparent; border: 0; color: var(--text); min-width: 72px; cursor: pointer;
+}
+.story-ring {
+  width: 62px; height: 62px; border-radius: 50%; padding: 3px; display: grid; place-items: center;
+  background: linear-gradient(135deg, #ffd76b, #ff5fa2, #8a5cff);
+}
+.story-ring.seen { background: var(--line); }
+.story-ring.story-camera { background: linear-gradient(135deg, #6ee7ff, #8a5cff); }
+.story-ring .avatar { width: 54px; height: 54px; font-size: 18px; border: 2px solid var(--card); }
+.story-plus {
+  position: absolute; margin: 36px 0 0 38px; width: 21px; height: 21px; border-radius: 50%;
+  background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px;
+}
+.story-name { max-width: 76px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story-progress-upload { margin-top: 8px; }
+.story-viewer { width: min(520px, 100%); padding: 0; overflow: hidden; }
+.story-segments { display: flex; gap: 3px; padding: 8px 8px 0; }
+.story-segment { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .25); }
+.story-segment.done { background: #fff; }
+.story-segment.active { background: var(--accent); }
+.story-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.story-media { position: relative; min-height: 320px; max-height: 70vh; background: #05060a; display: grid; place-items: center; }
+.story-media .post-media { width: auto; max-width: 100%; max-height: 70vh; border-radius: 0; }
+.story-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px;
+  border-radius: 50%; border: 0; background: rgba(0, 0, 0, .5); color: #fff; font-size: 26px; cursor: pointer;
+}
+.story-nav:disabled { opacity: .25; cursor: default; }
+.story-prev { left: 10px; }
+.story-next { right: 10px; }
+.story-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; }
+.story-viewers { max-height: 180px; overflow-y: auto; padding: 10px 14px 14px; border-top: 1px solid var(--line); }
+.story-viewers .like-row {
+  flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px;
+  width: 100%; padding: 6px 0; background: transparent; border: 0; color: var(--text);
+}
+
 /* ---------- Chat ---------- */
 .messages-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; height: 100%; max-width: 1180px; margin: 0 auto; min-height: 0; }
 .chat-list { overflow-y: auto; }
@@ -432,6 +475,8 @@ p { margin: 6px 0 12px; }
 .typing-line { font-style: italic; }
 .chat-composer { display: flex; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .chat-composer input[type='text'] { flex: 1; min-width: 140px; }
+.view-once-toggle { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.view-once-toggle input { accent-color: var(--accent); margin: 0; }
 
 /* ---------- Communities ---------- */
 .community-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
@@ -506,6 +551,10 @@ p { margin: 6px 0 12px; }
    congela el último frame y la cámara del otro se ve detenida al restaurar. */
 .call-media-hidden { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 .call-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px 16px; border-top: 1px solid var(--line); }
+.filter-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; width: 100%; padding-top: 4px; border-top: 1px dashed var(--line); }
+.filter-controls .control { padding: 6px 10px; }
+.filter-blur { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; }
+.filter-blur input { width: 110px; accent-color: var(--accent); }
 .control { background: var(--card-2); color: var(--text); border: 1px solid var(--line); }
 .control.off { color: #ffadad; border-color: rgba(237, 66, 69, .5); }
 .control.danger-outline { color: #ffadad; border-color: rgba(237, 66, 69, .6); }
@@ -619,6 +668,9 @@ p { margin: 6px 0 12px; }
 
   .page { gap: 12px; max-width: 100%; }
   .card { padding: 14px; border-radius: 12px; }
+  .story-viewer { max-height: 92vh; overflow-y: auto; }
+  .story-media { min-height: 45vh; max-height: 60vh; }
+  .story-media .post-media { max-height: 60vh; }
   .settings-card { padding: 0; }
   .settings-card-head { padding: 13px 14px; }
   .settings-body { padding: 14px; gap: 16px; }

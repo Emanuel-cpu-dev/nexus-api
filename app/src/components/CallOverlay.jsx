@@ -5,6 +5,21 @@ import { cx } from '../utils.js';
 import Avatar from './Avatar.jsx';
 
 const MAX_CALL_PARTICIPANTS = 5;
+const FILTERS = [
+  { id: 'natural', label: 'Natural', css: 'none' },
+  { id: 'bn', label: 'B/N', css: 'grayscale(1)' },
+  { id: 'sepia', label: 'Sepia', css: 'sepia(.75) saturate(1.2)' },
+  { id: 'frio', label: 'Frío', css: 'hue-rotate(175deg) saturate(1.15)' },
+  { id: 'calido', label: 'Cálido', css: 'sepia(.25) hue-rotate(330deg)' }
+];
+
+function filterCss(id, blur) {
+  const base = FILTERS.find((item) => item.id === id)?.css || 'none';
+  const parts = [];
+  if (base && base !== 'none') parts.push(base);
+  if (blur > 0) parts.push(`blur(${blur}px)`);
+  return parts.length ? parts.join(' ') : 'none';
+}
 
 function VideoTile({ stream, name, user, muted = false, remote = false }) {
   const ref = useRef(null);
@@ -49,11 +64,18 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   const [sharing, setSharing] = useState(false);
   const [selected, setSelected] = useState([]);
   const [minimized, setMinimized] = useState(false);
+  const [filter, setFilter] = useState('natural');
+  const [blur, setBlur] = useState(0);
   const [hostId, setHostId] = useState(call?.hostId || call?.from?.id || null);
   const [error, setError] = useState('');
   const rtcRef = useRef(null);
   const screenRef = useRef(null);
   const cameraRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const pipelineRef = useRef(null);
+  const sharingRef = useRef(false);
+  const cameraOffRef = useRef(false);
+  const appliedFilterKey = useRef('');
 
   const callId = call?.callId;
   const userOf = (id) => (id === me?.id ? me : friends.find((f) => f.id === id));
@@ -61,9 +83,106 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     ? `${me?.displayName} (tú)`
     : userOf(id)?.displayName || 'Participante');
 
+  function stopFilterPipeline() {
+    const pipeline = pipelineRef.current;
+    if (!pipeline) return;
+    cancelAnimationFrame(pipeline.raf);
+    if (pipeline.hidden) {
+      pipeline.hidden.srcObject = null;
+      pipeline.hidden.pause?.();
+    }
+    pipeline.track?.stop();
+    if (pipeline.canvas) {
+      pipeline.canvas.width = 0;
+      pipeline.canvas.height = 0;
+    }
+    pipelineRef.current = null;
+  }
+
+  async function sendVideoTrack(track) {
+    if (!track) return;
+    const audio = localStreamRef.current?.getAudioTracks() || [];
+    const next = new MediaStream([...audio, track]);
+    await rtcRef.current?.replaceVideoTrack(track, next);
+    localStreamRef.current = next;
+    setLocalStream(next);
+  }
+
+  async function restoreOriginalTrack() {
+    const camera = cameraRef.current?.readyState === 'live' ? cameraRef.current : null;
+    if (!camera) return;
+    if (localStreamRef.current?.getVideoTracks()[0] === camera) return;
+    stopFilterPipeline();
+    await sendVideoTrack(camera);
+  }
+
+  async function applyFilterPipeline() {
+    const css = filterCss(filter, blur);
+    if (css === 'none') {
+      // Volver a Natural debe devolver la cámara real al stream enviado.
+      if (!sharingRef.current && !cameraOffRef.current) await restoreOriginalTrack();
+      stopFilterPipeline();
+      return;
+    }
+    if (sharingRef.current || cameraOffRef.current) {
+      stopFilterPipeline();
+      return;
+    }
+    const camera = cameraRef.current;
+    if (!camera || camera.readyState !== 'live') return;
+    if (typeof document === 'undefined' || !document.createElement('canvas').captureStream) {
+      setError('Este dispositivo no puede aplicar filtros al video que envías.');
+      return;
+    }
+
+    stopFilterPipeline();
+    const canvas = document.createElement('canvas');
+    const hidden = document.createElement('video');
+    hidden.muted = true;
+    hidden.playsInline = true;
+    hidden.autoplay = true;
+    hidden.srcObject = new MediaStream([camera]);
+    await hidden.play();
+    const settings = camera.getSettings?.() || {};
+    canvas.width = Math.max(2, Number(settings.width) || 640);
+    canvas.height = Math.max(2, Number(settings.height) || 480);
+    const context = canvas.getContext('2d');
+    let raf = 0;
+    const draw = () => {
+      if (hidden.readyState >= 2) {
+        context.filter = css;
+        context.drawImage(hidden, 0, 0, canvas.width, canvas.height);
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+
+    const track = canvas.captureStream(30).getVideoTracks()[0];
+    if (!track) {
+      cancelAnimationFrame(raf);
+      return;
+    }
+    pipelineRef.current = { canvas, hidden, raf, track };
+    await sendVideoTrack(track);
+  }
+
   useEffect(() => {
     setMinimized(false);
+    setFilter('natural');
+    setBlur(0);
   }, [callId]);
+
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
+  useEffect(() => {
+    sharingRef.current = sharing;
+  }, [sharing]);
+
+  useEffect(() => {
+    cameraOffRef.current = cameraOff;
+  }, [cameraOff]);
 
   useEffect(() => {
     if (!callId || !active) return undefined;
@@ -106,16 +225,29 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     start();
     return () => {
       disposed = true;
+      stopFilterPipeline();
       rtcRef.current?.destroy();
       rtcRef.current = null;
       stream?.getTracks().forEach((track) => track.stop());
       screenRef.current?.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+      cameraRef.current = null;
+      appliedFilterKey.current = '';
       setLocalStream(null);
       setRemoteStreams({});
     };
     // peerIds se sincroniza con call:ready, no debe reiniciar el media.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callId, active]);
+
+  useEffect(() => {
+    if (!callId || !active) return;
+    const cameraKey = cameraRef.current?.id || 'none';
+    const key = `${callId}:${cameraKey}:${filter}:${blur}:${sharing}:${cameraOff}`;
+    if (appliedFilterKey.current === key) return;
+    appliedFilterKey.current = key;
+    applyFilterPipeline().catch((err) => setError(`No se pudo aplicar el filtro: ${err.message}`));
+  }, [callId, active, filter, blur, sharing, cameraOff, localStream]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -269,7 +401,11 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       }
       const track = stream.getVideoTracks()[0];
-      cameraRef.current = localStream?.getVideoTracks()[0] || cameraRef.current || null;
+      // Si hay un filtro activo, localStream tiene el track del canvas; la
+      // cámara real siempre queda en cameraRef para poder volver a ella.
+      if (cameraRef.current?.readyState !== 'live') {
+        cameraRef.current = localStream?.getVideoTracks()[0] || null;
+      }
       screenRef.current = stream;
       const next = new MediaStream([...(localStream?.getAudioTracks() || []), track]);
       await rtcRef.current?.replaceVideoTrack(track, next);
@@ -392,6 +528,32 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           <button type="button" className={cx('control', sharing && 'off')} onClick={shareScreen}>
             {sharing ? '🛑 Dejar de compartir' : '🖥️ Compartir pantalla'}
           </button>
+          <div className="filter-controls">
+            <span className="tiny muted">Filtro</span>
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={cx('control', filter === item.id && 'off')}
+                onClick={() => setFilter(item.id)}
+                disabled={sharing}
+              >
+                {item.label}
+              </button>
+            ))}
+            <label className="tiny muted filter-blur">
+              Desenfoque
+              <input
+                type="range"
+                min="0"
+                max="8"
+                value={blur}
+                disabled={sharing}
+                onChange={(event) => setBlur(Number(event.target.value))}
+              />
+              {blur > 0 ? `${blur}px` : ''}
+            </label>
+          </div>
           <button type="button" className="control hangup" onClick={hangup}>🚪 Salir (los demás siguen)</button>
           {isHost && (
             <button type="button" className="control danger-outline" onClick={endRoom}>⛔ Finalizar sala</button>

@@ -65,6 +65,7 @@ export default function Feed({
   const [mentionUsers, setMentionUsers] = useState([]);
   const [mentionIndex, setMentionIndex] = useState(0);
   const fileInput = useRef(null);
+  const cameraInput = useRef(null);
   const textareaRef = useRef(null);
   const mentionRange = useRef(null);
 
@@ -359,7 +360,16 @@ export default function Feed({
         {error && <div className="error-box">{error}</div>}
         <div className="composer-actions">
           <input ref={fileInput} type="file" hidden onChange={attach} />
+          <input
+            ref={cameraInput}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={attach}
+          />
           <button type="button" className="ghost" onClick={() => fileInput.current?.click()}>📎 Adjuntar</button>
+          <button type="button" className="ghost" onClick={() => cameraInput.current?.click()}>📷 Cámara</button>
           <button type="submit" className="primary">Publicar</button>
         </div>
       </form>

@@ -101,6 +101,27 @@ db.exec(`
     PRIMARY KEY (post_id, user_id)
   );
   CREATE INDEX IF NOT EXISTS idx_mentions_user_created ON mentions(user_id, created_at);
+  CREATE TABLE IF NOT EXISTS notification_reads (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    read_at TEXT NOT NULL
+  );
+  -- Historias efímeras (24 h). El archivo sigue viviendo dentro de SQLite.
+  CREATE TABLE IF NOT EXISTS stories (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_stories_feed ON stories(user_id, expires_at);
+  CREATE INDEX IF NOT EXISTS idx_stories_expiry ON stories(expires_at);
+  CREATE TABLE IF NOT EXISTS story_views (
+    story_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    viewed_at TEXT NOT NULL,
+    PRIMARY KEY (story_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_story_views_user ON story_views(user_id, viewed_at);
   CREATE TABLE IF NOT EXISTS watch_rooms (
     key TEXT PRIMARY KEY,
     url TEXT DEFAULT '',
@@ -127,6 +148,12 @@ if (!messageColumns.includes('delivered_at')) {
 }
 if (!messageColumns.includes('read_at')) {
   db.exec('ALTER TABLE messages ADD COLUMN read_at TEXT');
+}
+if (!messageColumns.includes('view_once')) {
+  db.exec('ALTER TABLE messages ADD COLUMN view_once INTEGER DEFAULT 0');
+}
+if (!messageColumns.includes('viewed_by')) {
+  db.exec('ALTER TABLE messages ADD COLUMN viewed_by TEXT');
 }
 const userColumns = db.prepare('PRAGMA table_info(users)').all().map((column) => column.name);
 if (!userColumns.includes('profile_private')) {
@@ -439,8 +466,12 @@ export function fileShape(row) {
   };
 }
 
-export function messageShape(row) {
+export function messageShape(row, viewerId = null) {
   if (!row) return null;
+  const viewOnce = Boolean(row.view_once);
+  // Quien recibe una foto "una sola vez" nunca ve la URL pública: para eso
+  // existe el endpoint que entrega el blob una única vez.
+  const hideFile = viewOnce && viewerId && viewerId !== row.from_id;
   return {
     id: row.id,
     room: row.room,
@@ -448,20 +479,23 @@ export function messageShape(row) {
     author: publicUser(getUserById(row.from_id)),
     text: row.text || '',
     fileId: row.file_id || null,
-    file: row.file_id ? fileShape(getFileById(row.file_id)) : null,
+    file: row.file_id && !hideFile ? fileShape(getFileById(row.file_id)) : null,
+    hasFile: Boolean(row.file_id),
+    viewOnce,
+    viewed: Boolean(row.viewed_by),
     createdAt: row.created_at,
     deliveredAt: row.delivered_at || null,
     readAt: row.read_at || null
   };
 }
 
-export function messagesFor(room, limit = 150) {
+export function messagesFor(room, limit = 150, viewerId = null) {
   const rows = db.prepare(`
     SELECT * FROM (
       SELECT rowid AS rid, * FROM messages WHERE room = ? ORDER BY created_at DESC, rowid DESC LIMIT ?
     ) ORDER BY rid ASC
   `).all(room, limit);
-  return rows.map(messageShape);
+  return rows.map((row) => messageShape(row, viewerId));
 }
 
 // Mensajes sin leer agrupados por conversación (clave = id del amigo,
@@ -490,12 +524,15 @@ export function unreadCountsFor(userId) {
   return counts;
 }
 
-export function saveMessage(room, fromId, text = '', fileId = null, deliveredAt = null) {
+export function saveMessage(room, fromId, text = '', fileId = null, deliveredAt = null, viewOnce = false) {
   const id = uid();
   db.prepare(`
-    INSERT INTO messages (id, room, from_id, text, file_id, created_at, delivered_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, room, fromId, String(text || '').slice(0, 10000), fileId || null, now(), deliveredAt || null);
+    INSERT INTO messages (id, room, from_id, text, file_id, created_at, delivered_at, view_once)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id, room, fromId, String(text || '').slice(0, 10000), fileId || null,
+    now(), deliveredAt || null, viewOnce ? 1 : 0
+  );
   return messageShape(db.prepare('SELECT * FROM messages WHERE id = ?').get(id));
 }
 
@@ -593,6 +630,133 @@ export function mentionNotificationsFor(userId, limit = 120) {
     hasFile: Boolean(row.fileId),
     user: mentionUser(row, userId),
     createdAt: row.mentionCreated
+  }));
+}
+
+// El badge funciona como en Instagram: se apaga al abrir Avisos y solo vuelve
+// a encenderse con lo que llegue después de esa lectura.
+export function markNotificationsRead(userId, at = now()) {
+  db.prepare(`
+    INSERT INTO notification_reads (user_id, read_at) VALUES (?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET read_at = excluded.read_at
+  `).run(userId, at);
+  return at;
+}
+
+export function unreadSocialCounts(userId) {
+  const read = db.prepare('SELECT read_at FROM notification_reads WHERE user_id = ?').get(userId);
+  const since = read?.read_at || null;
+  const likes = db.prepare(`
+    SELECT COUNT(*) AS c FROM likes l
+    JOIN posts p ON p.id = l.post_id
+    WHERE p.user_id = ? AND l.user_id != ? AND (? IS NULL OR l.created_at > ?)
+  `).get(userId, userId, since, since).c;
+  const mentions = db.prepare(`
+    SELECT COUNT(*) AS c FROM mentions
+    WHERE user_id = ? AND (? IS NULL OR created_at > ?)
+  `).get(userId, since, since).c;
+  return { likes, mentions };
+}
+
+// Las historias viven 24 h. Al vencer se borra también el BLOB del archivo
+// para que el backup de Render no crezca sin límite.
+export function purgeExpiredStories() {
+  const stamp = now();
+  const expired = db.prepare('SELECT file_id FROM stories WHERE expires_at <= ?').all(stamp);
+  const removeFile = db.prepare('DELETE FROM files WHERE id = ?');
+  for (const row of expired) removeFile.run(row.file_id);
+  return db.prepare('DELETE FROM stories WHERE expires_at <= ?').run(stamp).changes;
+}
+
+export function saveStory(userId, fileId) {
+  const id = uid();
+  const createdAt = now();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  db.prepare(`
+    INSERT INTO stories (id, user_id, file_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)
+  `).run(id, userId, fileId, createdAt, expiresAt);
+  return storyShape(db.prepare('SELECT * FROM stories WHERE id = ?').get(id), userId);
+}
+
+export function storyShape(row, viewerId = null) {
+  if (!row) return null;
+  const file = getFileById(row.file_id);
+  const views = db.prepare(`
+    SELECT user_id, viewed_at FROM story_views WHERE story_id = ? ORDER BY viewed_at ASC
+  `).all(row.id);
+  return {
+    id: row.id,
+    user: publicUser(getUserById(row.user_id), viewerId),
+    file: file ? fileShape(file) : null,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    viewed: views.some((view) => view.user_id === viewerId),
+    viewCount: views.length,
+    ...(viewerId === row.user_id
+      ? {
+          viewers: views.map((view) => ({
+            user: publicUser(getUserById(view.user_id), viewerId),
+            viewedAt: view.viewed_at
+          }))
+        }
+      : {})
+  };
+}
+
+export function storiesFor(viewerId) {
+  purgeExpiredStories();
+  const allowed = [viewerId, ...friendIds(viewerId)];
+  const marks = allowed.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT * FROM stories
+    WHERE expires_at > ? AND user_id IN (${marks})
+    ORDER BY created_at DESC
+  `).all(now(), ...allowed);
+  const byUser = new Map();
+  for (const row of rows) {
+    const story = storyShape(row, viewerId);
+    if (!story.file) continue;
+    if (!byUser.has(row.user_id)) byUser.set(row.user_id, { user: story.user, items: [] });
+    byUser.get(row.user_id).items.push(story);
+  }
+  const groups = [...byUser.values()].map((group) => ({
+    ...group,
+    seen: group.items.every((story) => story.viewed)
+  }));
+  groups.sort((a, b) => {
+    if (a.user.id === viewerId) return -1;
+    if (b.user.id === viewerId) return 1;
+    return (b.items[0]?.createdAt || '').localeCompare(a.items[0]?.createdAt || '');
+  });
+  return {
+    groups,
+    storyCount: groups.filter((group) => group.user.id !== viewerId && !group.seen).length
+  };
+}
+
+export function viewableStory(storyId, viewerId) {
+  const row = db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId);
+  if (!row || row.expires_at <= now()) return null;
+  if (row.user_id !== viewerId && !areFriends(row.user_id, viewerId)) return null;
+  return row;
+}
+
+export function markStoryViewed(storyId, viewerId) {
+  const viewedAt = now();
+  const result = db.prepare(`
+    INSERT OR IGNORE INTO story_views (story_id, user_id, viewed_at) VALUES (?, ?, ?)
+  `).run(storyId, viewerId, viewedAt);
+  return { created: result.changes > 0, viewedAt };
+}
+
+export function storyViewersFor(storyId, ownerId) {
+  const story = db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId);
+  if (!story || story.user_id !== ownerId) return [];
+  return db.prepare(`
+    SELECT user_id, viewed_at FROM story_views WHERE story_id = ? ORDER BY viewed_at ASC
+  `).all(storyId).map((view) => ({
+    user: publicUser(getUserById(view.user_id), ownerId),
+    viewedAt: view.viewed_at
   }));
 }
 

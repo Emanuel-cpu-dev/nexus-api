@@ -1,5 +1,5 @@
 {
-  "uiCode": 17,
-  "uiVersion": "1.16",
-  "notes": "Menciones con @ en posts y fotos: al etiquetado le llega el aviso y puede tocarlo para ver la publicación. Avisos de MG y menciones juntos en una sola pantalla."
+  "uiCode": 18,
+  "uiVersion": "1.17",
+  "notes": "Avisos leídos como Instagram: el badge se apaga al abrir Avisos y no vuelve al recargar. Fotos y cámara en el chat, opción \"ver una sola vez\", historias con lista de vistas, fotos de cámara en publicaciones y filtros/desenfoque en videollamadas."
 }

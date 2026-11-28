@@ -20,7 +20,7 @@ function dotClass(friend) {
 }
 
 export default function Sidebar({
-  me, view, changeView, friends, activeChat, unread = {}, noticeCount = 0, onDm, onLogout,
+  me, view, changeView, friends, activeChat, unread = {}, noticeCount = 0, storyCount = 0, onDm, onLogout,
   status, onStatus, soundOn, onToggleSound
 }) {
   const messageUnread = Object.entries(unread).reduce((total, [key, count]) => (
@@ -49,6 +49,9 @@ export default function Sidebar({
             <span className="nav-icon">{item.icon}</span>
             <span className="nav-label nav-label-full">{item.label}</span>
             <span className="nav-label nav-label-short">{item.short || item.label}</span>
+            {item.id === 'home' && storyCount > 0 && (
+              <span className="nav-badge" title="Historias nuevas">{storyCount > 99 ? '99+' : storyCount}</span>
+            )}
             {item.id === 'messages' && messageUnread > 0 && (
               <span className="nav-badge">{messageUnread > 99 ? '99+' : messageUnread}</span>
             )}

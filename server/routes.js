@@ -32,6 +32,14 @@ import {
   likeNotificationsFor,
   saveMentions,
   mentionNotificationsFor,
+  unreadSocialCounts,
+  markNotificationsRead,
+  saveStory,
+  storiesFor,
+  storyShape,
+  viewableStory,
+  markStoryViewed,
+  storyViewersFor,
   saveFileData,
   blobBuffer,
   commentsFor,
@@ -139,6 +147,8 @@ export function createRoutes(io) {
 
   router.get('/bootstrap', authRequired, (req, res) => {
     const id = req.user.id;
+    const noticeCounts = unreadSocialCounts(id);
+    const storyFeed = storiesFor(id);
     const friendRequests = db.prepare('SELECT * FROM friend_requests WHERE to_id = ? ORDER BY created_at DESC').all(id);
     const outgoingRows = db.prepare('SELECT * FROM friend_requests WHERE from_id = ? ORDER BY created_at DESC').all(id);
 
@@ -165,8 +175,10 @@ export function createRoutes(io) {
       communities: communitiesFor(id),
       posts: postsFor(id),
       unread: unreadCountsFor(id),
-      likeCount: likeNotificationsFor(id).length,
-      mentionCount: mentionNotificationsFor(id).length,
+      likeCount: noticeCounts.likes,
+      mentionCount: noticeCounts.mentions,
+      stories: storyFeed.groups,
+      storyCount: storyFeed.storyCount,
       location: {
         sharedWith: locationViewersFor(id),
         sharedBy: locationOwnersFor(id),
@@ -308,7 +320,7 @@ export function createRoutes(io) {
         online: isOnline(other.id),
         status: getStatus(other.id)
       },
-      messages: messagesFor(room, 150)
+      messages: messagesFor(room, 150, req.user.id)
     });
   });
 
@@ -320,7 +332,7 @@ export function createRoutes(io) {
     }
     return res.json({
       chat: { type: 'community', id: community.id, communityId: community.id, name: community.name },
-      messages: messagesFor(`community:${community.id}`, 150)
+      messages: messagesFor(`community:${community.id}`, 150, req.user.id)
     });
   });
 
@@ -360,6 +372,61 @@ export function createRoutes(io) {
 
   router.get('/mentions/me', authRequired, (req, res) => {
     return res.json({ mentions: mentionNotificationsFor(req.user.id) });
+  });
+
+  router.post('/notifications/read', authRequired, (req, res) => {
+    markNotificationsRead(req.user.id);
+    return res.json({ ok: true });
+  });
+
+  // Historias: solo el autor y sus amigos pueden verlas; viven 24 horas.
+  router.get('/stories', authRequired, (req, res) => {
+    return res.json(storiesFor(req.user.id));
+  });
+
+  router.post('/stories', authRequired, (req, res) => {
+    const fileId = req.body?.fileId;
+    const file = fileId ? getFileById(fileId) : null;
+    if (!file) return res.status(400).json({ error: 'Sube una foto o un video para la historia.' });
+    if (!/^(image|video)\//.test(file.mime || '')) {
+      return res.status(400).json({ error: 'La historia debe ser una imagen o un video.' });
+    }
+    if (Number(file.size) > 25 * 1024 * 1024) {
+      return res.status(400).json({ error: 'La historia no puede superar 25 MB.' });
+    }
+    const story = saveStory(req.user.id, file.id);
+    const row = db.prepare('SELECT * FROM stories WHERE id = ?').get(story.id);
+    for (const friendId of friendIds(req.user.id)) {
+      io.to(`user:${friendId}`).emit('story:new', {
+        story: storyShape(row, friendId),
+        user: publicUser(req.user, friendId),
+        createdAt: story.createdAt
+      });
+    }
+    return res.status(201).json({ story });
+  });
+
+  router.post('/stories/:id/view', authRequired, (req, res) => {
+    const row = viewableStory(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ error: 'Historia no disponible.' });
+    if (row.user_id === req.user.id) return res.json({ ok: true, own: true });
+    const result = markStoryViewed(row.id, req.user.id);
+    if (result.created) {
+      io.to(`user:${row.user_id}`).emit('story:viewed', {
+        storyId: row.id,
+        viewer: publicUser(req.user, row.user_id),
+        viewedAt: result.viewedAt
+      });
+    }
+    return res.json({ ok: true, viewedAt: result.viewedAt, viewCount: storyShape(row, req.user.id).viewCount });
+  });
+
+  router.get('/stories/:id/views', authRequired, (req, res) => {
+    const row = viewableStory(req.params.id, req.user.id);
+    if (!row || row.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Solo el autor puede ver quién miró su historia.' });
+    }
+    return res.json({ viewers: storyViewersFor(row.id, req.user.id) });
   });
 
   router.get('/posts', authRequired, (req, res) => {
@@ -498,6 +565,28 @@ export function createRoutes(io) {
       return res.send(data);
     }
     return res.download(join(uploadDir, file.filename), file.name || file.filename);
+  });
+
+  // Foto "ver una sola vez": se entrega el blob una única vez al destinatario.
+  // No se publica la URL de /uploads y la respuesta no se guarda en caché.
+  router.post('/messages/:id/once', authRequired, (req, res) => {
+    const row = db.prepare(`
+      SELECT * FROM messages WHERE id = ? AND view_once = 1 AND file_id IS NOT NULL
+    `).get(req.params.id);
+    const parts = row?.room?.startsWith('dm:') ? row.room.slice(3).split(':') : [];
+    if (!row || !parts.includes(req.user.id) || row.from_id === req.user.id) {
+      return res.status(404).json({ error: 'Foto no disponible.' });
+    }
+    const file = getFileById(row.file_id);
+    const data = blobBuffer(file?.data);
+    if (!data?.length) return res.status(410).json({ error: 'La foto ya no está disponible.' });
+    const claim = db.prepare(`
+      UPDATE messages SET viewed_by = ? WHERE id = ? AND viewed_by IS NULL
+    `).run(req.user.id, row.id);
+    if (!claim.changes) return res.status(410).json({ error: 'Esta foto ya fue vista.' });
+    res.setHeader('Content-Type', file.mime || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(data);
   });
 
   router.get('/watch/:key', authRequired, (req, res) => {

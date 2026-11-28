@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "1.16",
+  "versionCode": 18,
+  "versionName": "1.17",
   "force": true,
-  "notes": "OBLIGATORIA: etiquetá con @ en posts y fotos; al otro le llega el aviso y al tocarlo abre la publicación. Avisos de MG y menciones juntos. La actualización se descarga sola y se instala con un toque.",
+  "notes": "OBLIGATORIA: suenan mensajes y llamadas con la app minimizada, fotos y cámara en el chat (con opción de ver una sola vez), historias con vistas, fotos de cámara en posts y filtros/desenfoque en videollamadas. Además, los badges de Avisos se leen como en Instagram.",
   "apkUrl": "/Nexus.apk"
 }

@@ -1,4 +1,5 @@
 import {
+  db,
   getUserByToken,
   getUserById,
   publicUser,
@@ -6,6 +7,7 @@ import {
   areFriends,
   dmRoom,
   saveMessage,
+  messageShape,
   markMessagesDelivered,
   markMessagesRead,
   isCommunityMember,
@@ -226,10 +228,20 @@ export function setupSocket(io, release = {}) {
         return;
       }
       const deliveredAt = isOnline(to) ? now() : null;
-      const message = saveMessage(dmRoom(myId, to), myId, text, fileId, deliveredAt);
-      io.to(`user:${myId}`).emit('dm:message', { room: message.room, message });
-      io.to(`user:${to}`).emit('dm:message', { room: message.room, message });
-      if (typeof callback === 'function') callback(null, message);
+      const viewOnce = Boolean(payload?.viewOnce) && Boolean(fileId);
+      const message = saveMessage(dmRoom(myId, to), myId, text, fileId, deliveredAt, viewOnce);
+      const row = db.prepare('SELECT * FROM messages WHERE id = ?').get(message.id);
+      // Un solo dm:message por destinatario, como siempre. Solo cambia el shape:
+      // quien recibe una foto efímera no ve su URL pública.
+      io.to(`user:${myId}`).emit('dm:message', {
+        room: row.room,
+        message: messageShape(row, myId)
+      });
+      io.to(`user:${to}`).emit('dm:message', {
+        room: row.room,
+        message: messageShape(row, to)
+      });
+      if (typeof callback === 'function') callback(null, messageShape(row, myId));
     });
 
     socket.on('dm:read', (payload, callback) => {
@@ -541,8 +553,12 @@ export function setupSocket(io, release = {}) {
           });
         }
       }
-      for (const callId of [...calls.keys()]) {
-        if (calls.get(callId)?.peers.has(myId)) leaveCall(callId, myId);
+      // En Android pueden coexistir el socket del WebView y el del servicio
+      // nativo. Si solo cayó uno, no cortamos el timbre de la llamada entrante.
+      if (wentOffline) {
+        for (const callId of [...calls.keys()]) {
+          if (calls.get(callId)?.peers.has(myId)) leaveCall(callId, myId);
+        }
       }
     });
   });

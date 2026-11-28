@@ -64,3 +64,17 @@ export function uploadFile(file, onProgress) {
     xhr.send(form);
   });
 }
+
+// Devuelve un blob temporal: la URL pública de esa foto nunca llega al cliente.
+export async function openOnceImage(messageId) {
+  const token = localStorage.getItem('nexus_token');
+  const response = await fetch(`${getServerUrl()}/api/messages/${encodeURIComponent(messageId)}/once`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `No se pudo abrir la foto (${response.status}).`);
+  }
+  return URL.createObjectURL(await response.blob());
+}
