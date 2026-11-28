@@ -18,16 +18,18 @@ export default function Avatar({ user, size = '', className = '' }) {
 
   return (
     <span className={`avatar ${size} ${className}`.trim()} style={{ background: user?.avatarColor || '#5865f2' }}>
-      {showPhoto
-        ? <img
-            src={src}
-            alt=""
-            onError={() => {
-              if (attempt < 2) setAttempt((current) => current + 1);
-              else setFailed(true);
-            }}
-          />
-        : initials(user?.displayName)}
+      <span className="avatar-photo">
+        {showPhoto
+          ? <img
+              src={src}
+              alt=""
+              onError={() => {
+                if (attempt < 2) setAttempt((current) => current + 1);
+                else setFailed(true);
+              }}
+            />
+          : initials(user?.displayName)}
+      </span>
       {showPhoto && <span className="avatar-photo-badge" title="Con foto de perfil">📷</span>}
     </span>
   );

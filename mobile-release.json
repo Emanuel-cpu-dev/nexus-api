@@ -1,7 +1,7 @@
 {
-  "versionCode": 23,
-  "versionName": "1.22",
+  "versionCode": 24,
+  "versionName": "1.23",
   "force": true,
-  "notes": "OBLIGATORIA: la app muestra HEPH ·conectados· y el horóscopo de hoy carga los 12 signos con datos reales, con lectura completa y foto quieta mientras leés.",
+  "notes": "OBLIGATORIA: foto de perfil siempre circular sin tapar nombres en historias, y llamadas mucho más livianas (menos CPU y batería, video y pantalla optimizados). Todo lo demás sigue igual.",
   "apkUrl": "/Nexus.apk"
 }

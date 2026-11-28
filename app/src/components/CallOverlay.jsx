@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { getSocket } from '../socket.js';
 import { RtcManager } from '../rtc.js';
 import { cx } from '../utils.js';
@@ -21,7 +21,7 @@ function filterCss(id, blur) {
   return parts.length ? parts.join(' ') : 'none';
 }
 
-function VideoTile({ stream, name, user, muted = false, remote = false }) {
+const VideoTile = memo(function VideoTile({ stream, name, user, muted = false, remote = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const element = ref.current;
@@ -52,7 +52,7 @@ function VideoTile({ stream, name, user, muted = false, remote = false }) {
       {!hasVideo && <span className="video-avatar"><Avatar user={user} size="xl" /></span>}
     </div>
   );
-}
+});
 
 export default function CallOverlay({ call, me, friends, onClose }) {
   const [active, setActive] = useState(call?.status !== 'incoming');
@@ -147,17 +147,17 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     canvas.width = Math.max(2, Number(settings.width) || 640);
     canvas.height = Math.max(2, Number(settings.height) || 480);
     const context = canvas.getContext('2d');
+    context.filter = css;
     let raf = 0;
     const draw = () => {
       if (hidden.readyState >= 2) {
-        context.filter = css;
         context.drawImage(hidden, 0, 0, canvas.width, canvas.height);
       }
       raf = requestAnimationFrame(draw);
     };
     draw();
 
-    const track = canvas.captureStream(30).getVideoTracks()[0];
+    const track = canvas.captureStream(15).getVideoTracks()[0];
     if (!track) {
       cancelAnimationFrame(raf);
       return;
@@ -191,12 +191,17 @@ export default function CallOverlay({ call, me, friends, onClose }) {
 
     async function start() {
       const wantsVideo = call?.video !== false;
+      // Resolución y cuadros moderados: la voz va primero y la batería dura más.
+      const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+      const video = wantsVideo
+        ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } }
+        : false;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: wantsVideo });
+        stream = await navigator.mediaDevices.getUserMedia({ audio, video });
       } catch (err) {
         setError(`No se pudo abrir cámara/micrófono: ${err.message}. Se usará solo audio.`);
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
         } catch {
           return;
         }
@@ -330,7 +335,10 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     screenRef.current = null;
     let camera = cameraRef.current?.readyState === 'live' ? cameraRef.current : null;
     if (!camera) {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } }
+      });
       camera = stream.getVideoTracks()[0];
       cameraRef.current = camera;
     }
@@ -392,8 +400,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
           mandatory: {
             chromeMediaSource: 'desktop',
             chromeMediaSourceId: source.id,
-            maxWidth: 1920,
-            maxHeight: 1080
+            maxWidth: 1280,
+            maxHeight: 720,
+            frameRate: 15
           }
         };
         try {
@@ -414,7 +423,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       } else {
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: 30 },
+            video: { frameRate: { ideal: 15, max: 20 } },
             audio: { systemAudio: 'include', echoCancellation: false, noiseSuppression: false }
           });
         } catch {
@@ -450,7 +459,9 @@ export default function CallOverlay({ call, me, friends, onClose }) {
   }
 
   function enableRemoteAudio() {
-    document.querySelectorAll('video[data-remote="1"]').forEach((element) => {
+    document.querySelectorAll(
+      '.call-window video[data-remote="1"], .call-media-hidden video[data-remote="1"]'
+    ).forEach((element) => {
       element.muted = false;
       element.play().catch(() => {});
     });
