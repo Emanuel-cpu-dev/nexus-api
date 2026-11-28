@@ -535,8 +535,7 @@ p { margin: 6px 0 12px; }
 
 /* Celular: menú abajo, una sola columna y gestos táctiles */
 @media (max-width: 640px) {
-  /* --kb lo calcula el WebView cuando abre el teclado: así el composer queda
-     por encima del teclado en vez de quedar tapado. */
+  /* --kb solo descuenta la parte del teclado que el WebView no achicó. */
   .app-shell { flex-direction: column; height: calc(100dvh - var(--kb, 0px)); }
 
   .sidebar {
@@ -630,8 +629,26 @@ p { margin: 6px 0 12px; }
   .messages { padding: 12px; gap: 10px; }
   .bubble-row { max-width: 88%; }
   .bubble-media { max-width: 70vw; max-height: 38vh; }
-  .chat-composer { position: sticky; bottom: 0; z-index: 6; background: var(--card); padding: 10px; gap: 6px; }
-  .chat-composer input[type='text'] { min-width: 0; }
+  .chat-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    background: var(--card);
+    padding: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, .3);
+  }
+  .chat-composer input[type='text'] {
+    min-width: 0;
+    flex: 1 1 100%;
+    font-size: 16px;
+    background: #10121b;
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    opacity: 1;
+  }
+  .chat-composer input[type='text']:focus { background: #10121b; color: #fff; }
   .chat-composer .primary { padding: 10px 12px; }
 
   .community-detail-grid { display: flex; flex-direction: column; gap: 12px; overflow: visible; }

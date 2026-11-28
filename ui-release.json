@@ -1,5 +1,5 @@
 {
-  "uiCode": 12,
-  "uiVersion": "1.11",
-  "notes": "Corregido el teclado del chat: se ve lo que escribís. Incluye amistad desde el inicio, reposts, avisos de MG, llamadas con recuperación y actualización de la PC sin nuevo exe."
+  "uiCode": 15,
+  "uiVersion": "1.14",
+  "notes": "Arreglado el chat con el teclado abierto: el campo y lo que escribís se ven encima del teclado. Incluye amistad desde el inicio, reposts, avisos de MG y actualización de la PC sin nuevo exe."
 }

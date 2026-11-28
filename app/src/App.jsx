@@ -154,24 +154,38 @@ export default function App() {
     const root = document.documentElement;
     const viewport = window.visualViewport;
     let baseline = viewport?.height || window.innerHeight;
+    let baselineLayout = window.innerHeight;
+    let nativeKeyboard = 0;
 
     function setKeyboard(height) {
       root.style.setProperty('--kb', height > 20 ? `${Math.round(height)}px` : '0px');
       document.body.classList.toggle('keyboard-open', height > 20);
-      if (height > 20 && /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '')) {
-        document.activeElement.scrollIntoView({ block: 'end', behavior: 'smooth' });
-      }
+      // No fuerza scroll: en el WebView mover el foco hace que Android vuelva a
+      // dibujar el teclado y se quede en un bucle. La lista ya baja sola.
+    }
+
+    function keyboardFromNative() {
+      // En algunos WebViews el teclado ya achica el layout y además manda el
+      // evento nativo. Descontamos solo lo que el WebView NO achicó para no
+      // repetir la corrección y deformar la pantalla.
+      const consumedByWebView = Math.max(0, baselineLayout - window.innerHeight);
+      return Math.max(0, nativeKeyboard - consumedByWebView);
     }
 
     function onNativeKeyboard(event) {
       nativeKeyboardRef.current = true;
-      setKeyboard(Math.max(0, Number(event.detail) || 0));
+      nativeKeyboard = Math.max(0, Number(event.detail) || 0);
+      setKeyboard(keyboardFromNative());
     }
 
     function update() {
-      if (nativeKeyboardRef.current) return;
+      if (nativeKeyboardRef.current) {
+        setKeyboard(keyboardFromNative());
+        return;
+      }
       const visible = viewport?.height || window.innerHeight;
       if (visible > baseline) baseline = visible;
+      if (window.innerHeight > baselineLayout) baselineLayout = window.innerHeight;
       setKeyboard(Math.max(0, baseline - visible));
     }
 
