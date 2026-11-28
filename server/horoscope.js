@@ -1,7 +1,8 @@
-// Horóscopo diario real, en español. Se lee una vez por día de AstroWay /api
-// (sin clave) y se guarda solo en memoria: nunca se mezcla con la base de datos
-// de usuarios ni con los backups. Si falla el proveedor, se conserva el último
-// conjunto válido y se marca como "stale" para no inventar datos.
+// Horóscopo diario real, en español. Se lee una vez por día y se guarda solo
+// en memoria: nunca se mezcla con la base de datos de usuarios ni backups.
+// Fuente principal: Sigastra (una sola llamada con los 12 signos, efemérides
+// reales). Si falla, se usa AstroWay como respaldo. Si fallan las dos, se
+// conserva el último conjunto válido y se marca "stale" para no inventar datos.
 
 const SIGNS = [
   { id: 'aries', name: 'Aries', symbol: '♈', dates: '21 mar – 19 abr', element: 'Fuego', color: '#ff6b5e', accent: '#ffd166' },
@@ -17,6 +18,12 @@ const SIGNS = [
   { id: 'aquarius', name: 'Acuario', symbol: '♒', dates: '20 ene – 18 feb', element: 'Aire', color: '#4fd1e5', accent: '#a5f3fc' },
   { id: 'pisces', name: 'Piscis', symbol: '♓', dates: '19 feb – 20 mar', element: 'Agua', color: '#8fd3c7', accent: '#f4a7d1' }
 ];
+
+const SIGNAGE = {
+  Aries: 'aries', Taurus: 'taurus', Gemini: 'gemini', Cancer: 'cancer', Leo: 'leo', Virgo: 'virgo',
+  Libra: 'libra', Scorpio: 'scorpio', Sagittarius: 'sagittarius', Capricorn: 'capricorn',
+  Aquarius: 'aquarius', Pisces: 'pisces'
+};
 
 export const HOROSCOPE_SIGNS = SIGNS.map((sign) => sign.id);
 const MONTHS = [
@@ -54,7 +61,81 @@ function shortText(value, limit = 620) {
   return text.length > limit ? `${text.slice(0, limit).trimEnd()}…` : text;
 }
 
-async function fetchSign(sign, date) {
+function responseUrl() {
+  return process.env.PUBLIC_URL
+    ? `${process.env.PUBLIC_URL.replace(/\/$/, '')}/horoscope`
+    : 'https://nexus-api-cdxi.onrender.com/horoscope';
+}
+
+// Una sola llamada: evita que Render consuma las 30 peticiones/hora de AstroWay.
+async function fetchSigastra(date) {
+  const url = `https://sigastra.com/api/v1/daily?lang=es&sign=all&full=1`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      Referer: responseUrl(),
+      'User-Agent': 'Mozilla/5.0 (compatible; Nexus/1.21)'
+    },
+    signal: AbortSignal.timeout(12000)
+  });
+  if (!response.ok) throw new Error(`Sigastra ${response.status}`);
+  const body = await response.json();
+  if (body?.count !== 12 || !Array.isArray(body.items) || body.items.length !== 12) {
+    throw new Error('Respuesta incompleta de Sigastra');
+  }
+  return body;
+}
+
+function sigastraSign(meta, item) {
+  const info = item?.data || {};
+  const paragraphs = String(item?.text || '').split(/\n+/).map((part) => part.trim()).filter(Boolean);
+  const score = Math.max(1, Math.min(10, Math.round((Number(info.energy) || 3) * 2)));
+  return {
+    ...meta,
+    message: shortText(paragraphs[0] || item?.text),
+    sections: {
+      general: shortText(paragraphs[0] || item?.text),
+      amor: shortText(info.loveLine),
+      trabajo: shortText(info.workLine),
+      salud: shortText(info.energyLine)
+    },
+    score,
+    luck: stars(score),
+    number: 0,
+    luckyDay: '',
+    compatible: [],
+    sourceDate: item?.published ? String(item.published).slice(0, 10) : '',
+    disclaimer: 'Efemérides calculadas y texto original de Sigastra.'
+  };
+}
+
+async function refreshSigastra(date) {
+  const body = await fetchSigastra(date);
+  const byId = new Map();
+  body.items.forEach((item) => {
+    const id = SIGNAGE[item?.sign];
+    const meta = SIGNS.find((sign) => sign.id === id);
+    if (meta && item?.text) byId.set(id, sigastraSign(meta, item));
+  });
+  if (byId.size !== SIGNS.length) throw new Error('Faltan signos en Sigastra');
+  return {
+    date,
+    title: prettyDate(date),
+    focusIndex: sunSignIndex(`${date}T12:00:00Z`),
+    signs: SIGNS.map((meta) => byId.get(meta.id)),
+    source: {
+      name: 'Sigastra',
+      credit: 'Powered by Sigastra',
+      url: body.attribution?.localizedHref || 'https://sigastra.com/es/horoscopo-diario',
+      detail: 'Posiciones planetarias reales calculadas con efemérides, redactadas en español.'
+    },
+    stale: false,
+    error: null
+  };
+}
+
+// Respaldo: AstroWay (12 lecturas, límite 30 por hora por IP).
+async function fetchAstroWay(sign, date) {
   const url = `https://api.astroway.info/v1/public/horoscope/daily?sign=${sign.id}&lang=es&date=${date}`;
   const response = await fetch(url, {
     headers: { Accept: 'application/json' },
@@ -69,7 +150,7 @@ async function fetchSign(sign, date) {
   return data;
 }
 
-function signFromData(meta, data) {
+function astroWaySign(meta, data) {
   const sections = data.sections || {};
   const lucky = data.lucky || {};
   const energy = data.energy || {};
@@ -94,12 +175,12 @@ function signFromData(meta, data) {
   };
 }
 
-async function refresh(date) {
-  const results = await Promise.allSettled(SIGNS.map((sign) => fetchSign(sign, date)));
+async function refreshAstroWay(date) {
+  const results = await Promise.allSettled(SIGNS.map((sign) => fetchAstroWay(sign, date)));
   const signs = [];
   const failed = [];
   results.forEach((result, index) => {
-    if (result.status === 'fulfilled') signs.push(signFromData(SIGNS[index], result.value));
+    if (result.status === 'fulfilled') signs.push(astroWaySign(SIGNS[index], result.value));
     else failed.push(SIGNS[index].name);
   });
   if (signs.length !== SIGNS.length) {
@@ -112,6 +193,7 @@ async function refresh(date) {
     signs: SIGNS.map((meta) => signs.find((item) => item.id === meta.id)),
     source: {
       name: 'AstroWay',
+      credit: 'AstroWay',
       url: 'https://api.astroway.info',
       detail: 'Posiciones planetarias reales del día, redactadas en español.'
     },
@@ -120,8 +202,20 @@ async function refresh(date) {
   };
 }
 
-// Devuelve el horóscopo del día. Nunca devuelve frases inventadas: si el
-// proveedor falla, usa el último válido y lo marca como stale.
+async function refresh(date) {
+  try {
+    return await refreshSigastra(date);
+  } catch (sigastraError) {
+    try {
+      return await refreshAstroWay(date);
+    } catch (astroError) {
+      throw new Error(`Sigastra: ${sigastraError.message} · AstroWay: ${astroError.message}`);
+    }
+  }
+}
+
+// Devuelve el horóscopo del día. Nunca devuelve frases inventadas: si fallan
+// las fuentes, usa el último válido y lo marca como stale.
 export async function getHoroscope() {
   const date = todayKey();
   if (cache?.date === date) return cache.payload;
@@ -141,7 +235,7 @@ export async function getHoroscope() {
         title: prettyDate(date),
         focusIndex: sunSignIndex(`${date}T12:00:00Z`),
         signs: [],
-        source: { name: 'AstroWay', url: 'https://api.astroway.info', detail: '' },
+        source: { name: 'Sigastra', credit: 'Powered by Sigastra', url: 'https://sigastra.com/es/horoscopo-diario', detail: '' },
         stale: true,
         error: `No se pudo cargar el horóscopo de hoy: ${error.message}`
       };

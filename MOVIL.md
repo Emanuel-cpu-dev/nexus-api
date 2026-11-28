@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app la **descarga sola en segundo plano** y muestra un aviso cuando ya está lista: se toca **Instalar** (o la notificación) y se abre el instalador. Android siempre pide la confirmación final; ninguna app normal puede saltearla. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Heph aparece el cartel para pasar a la 1.21. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Heph directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Heph aparece el cartel para pasar a la 1.22. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Heph directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -32,10 +32,10 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir He
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo Heph (la H y la palabra HEPH), igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.21. La actualización 1.21 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
+- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.22. La actualización 1.22 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
 
 - ✅ El **horóscopo del Inicio** es una historia de **12 signos**: foto y texto real del día que cambian solos, se cierra con **✕**, **Escape** o al llegar al último. Tocá la imagen (o **📖 Leer**) para ver general, amor, trabajo, salud, dinero, consejo y compatibilidad con letra grande: el auto-avance se pausa mientras leés. Podés dar ❤️, escribir 💬 y tocar **↗️ Compartir** para poner tu signo en tu propia historia con un mensaje opcional (mg). Al abrir la app en un día nuevo avisa sola.
-- ✅ El nombre de la app es **Heph** y el icono es la **H** estilizada con la palabra HEPH, en escritorio y Android. La marca visible dice **HEPH** y debajo **·conectandos·**, con letra elegante y centrada en el inicio del celular, el menú, el login y la carga.
+- ✅ El nombre de la app es **Heph** y el icono es la **H** estilizada con la palabra HEPH, en escritorio y Android. La marca visible dice **HEPH** y debajo **·conectados·**, con letra elegante y centrada en el inicio del celular, el menú, el login y la carga.
 - ✅ Los archivos para compartir siguen llamándose `Nexus-Portable.exe` y `Nexus.apk` para no romper las actualizaciones ni las cuentas.
 - ✅ Tus historias muestran el **texto/mensaje** que les pusiste al compartirlas.
 - ✅ Botón **atrás** como en Instagram/Facebook/LinkedIn: vuelve al chat, al perfil o a la pantalla anterior y recién en el **Inicio** sale de la app.

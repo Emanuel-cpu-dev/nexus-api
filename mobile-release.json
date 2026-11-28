@@ -1,7 +1,7 @@
 {
-  "versionCode": 22,
-  "versionName": "1.21",
+  "versionCode": 23,
+  "versionName": "1.22",
   "force": true,
-  "notes": "OBLIGATORIA: la app muestra HEPH ·conectandos· con letra elegante y bien centrada. El zodiaco se toca y se lee completo sin auto-avance, con las 12 fotos reales del día y tu signo en tu historia con mg.",
+  "notes": "OBLIGATORIA: la app muestra HEPH ·conectados· y el horóscopo de hoy carga los 12 signos con datos reales, con lectura completa y foto quieta mientras leés.",
   "apkUrl": "/Nexus.apk"
 }
