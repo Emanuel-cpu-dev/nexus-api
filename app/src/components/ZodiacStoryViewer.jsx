@@ -161,6 +161,7 @@ export default function ZodiacStoryViewer({
     return Math.min(Math.max(focus, 0), Math.max((data?.signs?.length || 1) - 1, 0));
   });
   const [panel, setPanel] = useState(null);
+  const [reading, setReading] = useState(false);
   const [reactions, setReactions] = useState({});
   const [reply, setReply] = useState('');
   const [shareText, setShareText] = useState('');
@@ -200,6 +201,7 @@ export default function ZodiacStoryViewer({
 
   const go = useCallback((delta) => {
     setPanel(null);
+    setReading(false);
     setError('');
     setIndex((value) => {
       const next = value + delta;
@@ -211,25 +213,29 @@ export default function ZodiacStoryViewer({
     });
   }, [signs.length, onClose]);
 
+  // Mientras se está leyendo el texto (o hay otro panel abierto) la foto no
+  // avanza sola: así se puede tocar la imagen y leer con calma.
   useEffect(() => {
-    if (!sign || panel) return undefined;
+    if (!sign || panel || reading) return undefined;
     const timer = setTimeout(() => go(1), STORY_MS);
     return () => clearTimeout(timer);
-  }, [index, panel, go, sign?.id]);
+  }, [index, panel, reading, go, sign?.id]);
 
   useEffect(() => {
     function onKey(event) {
       if (event.key === 'Escape') {
-        if (panel) setPanel(null);
+        if (reading) setReading(false);
+        else if (panel) setPanel(null);
         else onClose?.();
+        return;
       }
-      if (panel) return;
+      if (reading || panel) return;
       if (event.key === 'ArrowRight') go(1);
       if (event.key === 'ArrowLeft') go(-1);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, onClose, panel]);
+  }, [go, onClose, panel, reading]);
 
   useEffect(() => {
     if (panel && panelRef.current) panelRef.current.scrollTop = 0;
@@ -343,24 +349,76 @@ export default function ZodiacStoryViewer({
           <button type="button" className="icon-btn" title="Cerrar" aria-label="Cerrar historia" onClick={onClose}>✕</button>
         </header>
 
-        <div className="story-media zodiac-media">
+        <div
+          className={cx('story-media zodiac-media', reading && 'is-reading')}
+          onClick={() => { if (!reading) setReading(true); }}
+          title={reading ? '' : 'Tocá para leer el horóscopo sin que avance'}
+        >
           <img src={photoUrl || assetFor(sign)} alt={`Horóscopo de ${sign.name} para ${data.title}`} draggable={false} />
-          {!photoUrl && (
-            <>
-              <div className="zodiac-shade" />
-              <div className="zodiac-copy">
-                <div className="zodiac-kicker">{sign.dates} · {sign.element}</div>
-                <h2>{sign.symbol} {sign.name}</h2>
-                <p>{sign.message}</p>
-                <div className="zodiac-stats">
-                  <span>{sign.luck} · {sign.score}/10</span>
-                  <span>🍀 {sign.number}</span>
-                  {sign.luckyDay && <span>{sign.luckyDay}</span>}
-                </div>
-              </div>
-            </>
+          <div className="zodiac-shade" />
+          <div className="zodiac-copy">
+            <div className="zodiac-kicker">{sign.dates} · {sign.element}</div>
+            <h2>{sign.symbol} {sign.name}</h2>
+            <p>{sign.sections?.general || sign.message}</p>
+            <div className="zodiac-stats">
+              <span>{sign.luck} · {sign.score}/10</span>
+              <span>🍀 {sign.number}</span>
+              {sign.luckyDay && <span>{sign.luckyDay}</span>}
+            </div>
+          </div>
+          {!reading && (
+            <button
+              type="button"
+              className="zodiac-read-open"
+              onClick={(event) => { event.stopPropagation(); setReading(true); }}
+            >
+              📖 Leer completo
+            </button>
           )}
-          {!panel && (
+          {reading && (
+            <div className="zodiac-reader" onClick={(event) => event.stopPropagation()}>
+              <div className="zodiac-reader-head">
+                <div className="grow">
+                  <strong>{sign.symbol} {sign.name}</strong>
+                  <div className="tiny muted">{data.title} · auto-avance en pausa</div>
+                </div>
+                <button type="button" className="icon-btn" title="Volver a la foto" onClick={() => setReading(false)}>✕</button>
+              </div>
+              <div className="zodiac-reader-body">
+                <p className="zodiac-reader-lead">{sign.sections?.general || sign.message}</p>
+                {[
+                  ['❤️ Amor', 'amor'],
+                  ['💼 Trabajo', 'trabajo'],
+                  ['🌿 Salud', 'salud'],
+                  ['💰 Dinero', 'dinero'],
+                  ['✨ Consejo', 'consejo']
+                ].map(([label, key]) => (sign.sections?.[key] ? (
+                  <section className="zodiac-reader-section" key={key}>
+                    <h3>{label}</h3>
+                    <p>{sign.sections[key]}</p>
+                  </section>
+                ) : null))}
+                {sign.compatible?.length > 0 && (
+                  <section className="zodiac-reader-section">
+                    <h3>🤝 Compatibilidad</h3>
+                    <p>{sign.compatible.join(' · ')}</p>
+                  </section>
+                )}
+                <div className="zodiac-reader-stats">
+                  <span>{sign.luck} · Energía {sign.score}/10</span>
+                  <span>🍀 Número {sign.number}</span>
+                  {sign.luckyDay && <span>📅 {sign.luckyDay}</span>}
+                </div>
+                <p className="tiny muted">
+                  Datos reales de {data.source?.name || 'AstroWay'} · {data.stale ? 'último día disponible' : 'actualizado hoy'}
+                </p>
+              </div>
+              <div className="zodiac-reader-foot">
+                <button type="button" className="primary small" onClick={() => setReading(false)}>Volver a la foto</button>
+              </div>
+            </div>
+          )}
+          {!panel && !reading && (
             <>
               <button
                 type="button"
@@ -409,6 +467,14 @@ export default function ZodiacStoryViewer({
               title="Compartir en tu historia"
             >
               ↗️ Compartir
+            </button>
+            <button
+              type="button"
+              className="zodiac-action"
+              onClick={() => { setPanel(null); setReading((value) => !value); }}
+              title="Leer el horóscopo completo"
+            >
+              📖 {reading ? 'Ver foto' : 'Leer'}
             </button>
           </div>
           <span className="zodiac-page">{index + 1}/{signs.length}</span>

@@ -1,18 +1,17 @@
 Add-Type -AssemblyName System.Drawing
 
 $root = Split-Path $PSScriptRoot -Parent
-$icoPath = Join-Path $root 'nexus-violeta.ico'
+$brand = Join-Path $root 'brand'
+$iconPath = Join-Path $brand 'heph-icon.png'
+$logoPath = Join-Path $brand 'heph-logo.png'
 $res = Join-Path $PSScriptRoot 'android/app/src/main/res'
 
-# El .ico de escritorio contiene un PNG de 256x256 en su única entrada.
-$bytes = [IO.File]::ReadAllBytes($icoPath)
-$length = [BitConverter]::ToInt32($bytes, 14)
-$offset = [BitConverter]::ToInt32($bytes, 18)
-$stream = New-Object IO.MemoryStream(, $bytes[$offset..($offset + $length - 1)])
-$logo = [System.Drawing.Bitmap]::FromStream($stream)
+# Icono cuadrado con fondo y logo transparente, ambos salidos de la imagen de Heph.
+$iconImage = [System.Drawing.Image]::FromFile($iconPath)
+$logoImage = [System.Drawing.Image]::FromFile($logoPath)
 $dark = [System.Drawing.Color]::FromArgb(255, 13, 14, 20)
 
-function Save-Logo([string]$path, [int]$width, [int]$height, [bool]$circle) {
+function Save-Image([string]$path, [int]$width, [int]$height, [object]$source, [double]$scale, [bool]$circle) {
   $bitmap = New-Object System.Drawing.Bitmap($width, $height)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
   $graphics.Clear([System.Drawing.Color]::Transparent)
@@ -23,7 +22,11 @@ function Save-Logo([string]$path, [int]$width, [int]$height, [bool]$circle) {
     $clip.AddEllipse(0, 0, $width, $height)
     $graphics.SetClip($clip)
   }
-  $graphics.DrawImage($logo, 0, 0, $width, $height)
+  $drawW = [int]($width * $scale)
+  $drawH = [int]($height * $scale)
+  $x = [int](($width - $drawW) / 2)
+  $y = [int](($height - $drawH) / 2)
+  $graphics.DrawImage($source, $x, $y, $drawW, $drawH)
   $graphics.Dispose()
   $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
   $bitmap.Dispose()
@@ -37,7 +40,7 @@ function Save-Splash([string]$dir, [int]$width, [int]$height) {
   $x = [int](($width - $size) / 2)
   $y = [int](($height - $size) / 2)
   $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $graphics.DrawImage($logo, $x, $y, $size, $size)
+  $graphics.DrawImage($logoImage, $x, $y, $size, $size)
   $graphics.Dispose()
   $target = Join-Path $res $dir
   if (!(Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
@@ -54,9 +57,9 @@ $densities = @(
 )
 foreach ($d in $densities) {
   $dir = Join-Path $res ("mipmap-" + $d.name)
-  Save-Logo (Join-Path $dir 'ic_launcher.png') $d.icon $d.icon $false
-  Save-Logo (Join-Path $dir 'ic_launcher_round.png') $d.icon $d.icon $true
-  Save-Logo (Join-Path $dir 'ic_launcher_foreground.png') $d.foreground $d.foreground $false
+  Save-Image (Join-Path $dir 'ic_launcher.png') $d.icon $d.icon $iconImage 1.0 $false
+  Save-Image (Join-Path $dir 'ic_launcher_round.png') $d.icon $d.icon $iconImage 1.0 $true
+  Save-Image (Join-Path $dir 'ic_launcher_foreground.png') $d.foreground $d.foreground $logoImage 0.72 $false
 }
 
 $splashes = @(
@@ -81,6 +84,6 @@ Set-Content -Path (Join-Path $res 'values/ic_launcher_background.xml') -NoNewlin
 </resources>
 '@ -Encoding UTF8
 
-$logo.Dispose()
-$stream.Dispose()
-Write-Output 'Iconos y splash de Nexus generados.'
+$iconImage.Dispose()
+$logoImage.Dispose()
+Write-Output 'Iconos y splash de Heph generados.'

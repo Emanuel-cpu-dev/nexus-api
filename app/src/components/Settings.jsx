@@ -25,7 +25,7 @@ export default function Settings({ onLogout, status, onStatus, soundOn, onToggle
     } else {
       localStorage.removeItem('nexus_turn');
     }
-    setMessage('Guardado. Reinicia Nexus para aplicar el cambio de servidor.');
+    setMessage('Guardado. Reinicia Heph para aplicar el cambio de servidor.');
   }
 
   return (
@@ -43,7 +43,7 @@ export default function Settings({ onLogout, status, onStatus, soundOn, onToggle
         </div>
         <div className="settings-body">
           {!isOwner && (
-            <div className="lock-note">🔒 Estas opciones solo las puede cambiar el dueño de Nexus.</div>
+            <div className="lock-note">🔒 Estas opciones solo las puede cambiar el dueño de Heph.</div>
           )}
           <label className="settings-field">
             URL del servidor

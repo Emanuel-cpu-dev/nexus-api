@@ -1,4 +1,4 @@
-# Nexus
+# Heph
 
 Red social de escritorio (Electron + React) con chat, llamadas WebRTC, pantalla compartida, salas de video sincronizado y feed tipo Humand.
 
@@ -47,7 +47,7 @@ cd C:\Nexus
 git add .; git commit -m 'Descripcion del cambio'; git push
 ```
 
-Render reconstruye la interfaz automáticamente (`npm install && npm run build:web`) y todos la ven al reiniciar Nexus. Solo se recompila el `.exe` si cambia la URL pública o si se toca `electron/main.cjs`.
+Render reconstruye la interfaz automáticamente (`npm install && npm run build:web`) y todos la ven al reiniciar Heph. Solo se recompila el `.exe` si cambia la URL pública o si se toca `electron/main.cjs`.
 
 ## Estructura
 

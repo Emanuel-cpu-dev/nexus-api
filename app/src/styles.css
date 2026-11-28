@@ -512,21 +512,56 @@ p { margin: 6px 0 12px; }
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
   font-size: 20px; line-height: 1; background: linear-gradient(135deg, #7c5cff, #ffd76b);
 }
-.zodiac-media { height: min(70vh, 680px); min-height: 380px; overflow: hidden; }
-.zodiac-media > img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.zodiac-shade {
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, .78) 100%);
+.zodiac-media {
+  height: min(70vh, 680px); min-height: 380px; overflow: hidden;
+  background: #05060a; cursor: zoom-in; position: relative;
 }
-.zodiac-copy { position: absolute; left: 16px; right: 16px; bottom: 18px; overflow-wrap: anywhere; }
+.zodiac-media.is-reading { cursor: default; }
+.zodiac-media > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.zodiac-shade {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .08) 0%, transparent 24%, rgba(0, 0, 0, .6) 62%, rgba(0, 0, 0, .94) 100%);
+}
+.is-reading .zodiac-shade, .is-reading .zodiac-copy, .is-reading .zodiac-read-open { opacity: 0; pointer-events: none; }
+.zodiac-copy { position: absolute; left: 18px; right: 18px; bottom: 18px; overflow-wrap: anywhere; pointer-events: none; }
 .zodiac-kicker { color: #ffd76b; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-.zodiac-copy h2 { margin: 4px 0 8px; font-size: 24px; }
-.zodiac-copy p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+.zodiac-copy h2 { margin: 4px 0 8px; font-size: 25px; text-shadow: 0 2px 10px #000; }
+.zodiac-copy p {
+  margin: 0 0 10px; font-size: 15px; line-height: 1.55; color: #fff; text-shadow: 0 1px 6px #000;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .zodiac-stats { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .zodiac-stats span {
-  background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .18); border-radius: 18px;
+  background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 255, 255, .22); border-radius: 18px;
   padding: 5px 11px; font-size: 12px;
 }
+.zodiac-read-open {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px;
+  background: rgba(8, 9, 18, .78); color: #fff; padding: 7px 12px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.zodiac-reader {
+  position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column;
+  background: linear-gradient(180deg, rgba(8, 9, 18, .98), rgba(12, 13, 25, .99));
+  color: #fff;
+}
+.zodiac-reader-head {
+  display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.zodiac-reader-head strong { font-size: 18px; }
+.zodiac-reader-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px 20px; font-size: 16px; line-height: 1.65; }
+.zodiac-reader-lead { margin: 0 0 16px; font-size: 17px; color: #fff; }
+.zodiac-reader-section { margin: 0 0 15px; }
+.zodiac-reader-section h3 { margin: 0 0 4px; font-size: 14px; letter-spacing: .02em; color: #ffd76b; }
+.zodiac-reader-section p { margin: 0; overflow-wrap: anywhere; }
+.zodiac-reader-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 12px; }
+.zodiac-reader-stats span {
+  border: 1px solid rgba(255, 255, 255, .2); border-radius: 14px;
+  background: rgba(255, 255, 255, .06); padding: 6px 10px; font-size: 13px;
+}
+.zodiac-reader-foot { padding: 10px 16px 14px; border-top: 1px solid var(--line); text-align: center; }
 .zodiac-footer { flex-direction: column; align-items: stretch; gap: 8px; }
 .zodiac-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .zodiac-action {

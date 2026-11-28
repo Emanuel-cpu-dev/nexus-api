@@ -1170,7 +1170,7 @@ export default function App() {
     return (
       <>
         {updateBanner}
-        <div className="loading-screen"><div className="brand-mark">N</div><p>Conectando con Nexus…</p></div>
+        <div className="loading-screen"><div className="brand-mark">H</div><p>Conectando con Heph…</p></div>
       </>
     );
   }

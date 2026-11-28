@@ -164,7 +164,7 @@ public class NexusMessagingService extends Service {
         manager.deleteNotificationChannel("nexus_calls_v2");
 
         NotificationChannel foreground = new NotificationChannel(
-                CH_FOREGROUND, "Nexus en segundo plano", NotificationManager.IMPORTANCE_LOW);
+                CH_FOREGROUND, "Heph en segundo plano", NotificationManager.IMPORTANCE_LOW);
 
         NotificationChannel messages = new NotificationChannel(
                 CH_MESSAGES, "Mensajes", NotificationManager.IMPORTANCE_HIGH);
@@ -208,7 +208,7 @@ public class NexusMessagingService extends Service {
     private Notification foregroundNotification() {
         PendingIntent open = openApp(null, null, 0);
         return new NotificationCompat.Builder(this, CH_FOREGROUND)
-                .setContentTitle("Nexus activo")
+                .setContentTitle("Heph activo")
                 .setContentText("Avisos de mensajes y llamadas encendidos")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(open)
@@ -426,7 +426,7 @@ public class NexusMessagingService extends Service {
                 ? UpdaterPlugin.readyPendingIntent(this)
                 : openApp(null, null, 5000);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CH_UPDATES)
-                .setContentTitle("⬆️ Actualización de Nexus")
+                .setContentTitle("⬆️ Actualización de Heph")
                 .setContentText(detail)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(detail))
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)

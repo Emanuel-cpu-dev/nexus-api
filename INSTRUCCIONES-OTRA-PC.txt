@@ -1,4 +1,4 @@
-NEXUS - CÓMO ABRIRLO EN OTRA PC
+HEPH - CÓMO ABRIRLO EN OTRA PC
 
 1) Extraé el ZIP en el Escritorio (clic derecho -> Extraer todo).
    No lo ejecutes desde adentro del ZIP ni desde un pendrive o carpeta de red.
@@ -17,12 +17,12 @@ NEXUS - CÓMO ABRIRLO EN OTRA PC
 5) Si aparece la pantalla azul de Windows Defender / SmartScreen:
    clic en "Más información" -> "Ejecutar de todos modos".
 
-6) Doble clic en Nexus-Portable.exe. Se abre una ventana llamada "Nexus".
+6) Doble clic en Nexus-Portable.exe. Se abre una ventana llamada "Heph".
    No hay que configurar ninguna URL: la interfaz se carga sola desde Render.
 
-Cuando haya cambios nuevos, adentro de Nexus aparece un cartel que dice
-"Nueva versión de Nexus para la PC". Tocá "Actualizar": la interfaz se
+Cuando haya cambios nuevos, adentro de Heph aparece un cartel que dice
+"Nueva versión de Heph para la PC". Tocá "Actualizar": la interfaz se
 recarga desde Render. No hay que descargar otro exe ni volver a pasar el ZIP.
-Si el cartel no aparece, cerrá y abrí Nexus: también se revisa al abrir.
+Si el cartel no aparece, cerrá y abrí Heph: también se revisa al abrir.
 
 Si sigue sin abrirse, copiame el mensaje exacto que muestra Windows.

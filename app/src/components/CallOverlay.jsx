@@ -521,7 +521,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       <div className="card call-window">
         <header className="call-header">
           <div>
-            <strong>📹 Llamada Nexus</strong>
+            <strong>📹 Llamada Heph</strong>
             <span className="tiny muted block">En la llamada: {peerIds.map(nameOf).join(', ') || 'Conectando…'}</span>
           </div>
           <div className="call-header-actions">

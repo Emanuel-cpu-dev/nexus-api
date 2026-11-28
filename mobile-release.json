@@ -1,7 +1,7 @@
 {
-  "versionCode": 20,
-  "versionName": "1.19",
+  "versionCode": 21,
+  "versionName": "1.20",
   "force": true,
-  "notes": "OBLIGATORIA: el horóscopo es una historia de 12 signos con fotos y texto real que se renuevan cada día. Se cierra con X, Escape o al terminar; podés darle me gusta, dejar un mensaje y pasar tu signo a tu historia con un mg. Las historias propias muestran el texto que les pusiste.",
+  "notes": "OBLIGATORIA: Heph ya tiene el nombre y el icono nuevos. El horóscopo se toca y se lee completo con letra grande, sin auto-avance; seguí viendo las 12 fotos reales del día, me gusta, mensajes y tu signo en tu historia con mg.",
   "apkUrl": "/Nexus.apk"
 }

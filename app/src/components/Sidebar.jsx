@@ -29,9 +29,9 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
-        <div className="brand-mark small">N</div>
+        <div className="brand-mark small">H</div>
         <div>
-          <strong>Nexus</strong>
+          <strong>Heph</strong>
           <span className="muted block tiny">conectados, siempre</span>
         </div>
       </div>

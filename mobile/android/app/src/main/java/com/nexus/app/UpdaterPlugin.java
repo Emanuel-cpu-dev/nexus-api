@@ -109,7 +109,7 @@ public class UpdaterPlugin extends Plugin {
         if (manager == null) return;
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL,
-                "Actualizaciones de Nexus",
+                "Actualizaciones de Heph",
                 NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("Avisos cuando una versión nueva ya está descargada.");
         channel.enableVibration(true);
@@ -137,7 +137,7 @@ public class UpdaterPlugin extends Plugin {
         String text = "Tocá para instalar"
                 + (versionName == null || versionName.isEmpty() ? " la versión nueva." : " la versión " + versionName + ".");
         Notification notification = new NotificationCompat.Builder(context, CHANNEL)
-                .setContentTitle("⬆️ Nexus listo para actualizar")
+                .setContentTitle("⬆️ Heph listo para actualizar")
                 .setContentText(text)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
@@ -186,7 +186,7 @@ public class UpdaterPlugin extends Plugin {
             // Si no se puede reemplazar, DownloadManager crearía otro archivo.
         }
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-        request.setTitle("Nexus");
+        request.setTitle("Heph");
         request.setDescription("Descargando la actualización…");
         request.setMimeType("application/vnd.android.package-archive");
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);

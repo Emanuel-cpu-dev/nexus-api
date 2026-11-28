@@ -4,7 +4,7 @@ export default function UiUpdateBanner({ update, onInstall }) {
     <div className="update-banner force" role="status">
       <span className="update-icon">🖥️</span>
       <div className="grow">
-        <strong>Nueva versión de Nexus para la PC</strong>
+        <strong>Nueva versión de Heph para la PC</strong>
         <div className="tiny muted">
           {update.notes || `Interfaz ${update.uiVersion || update.uiCode}`}
           {' · '}Tocá Actualizar para cargarla. No hay que descargar nada.

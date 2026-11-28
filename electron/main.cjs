@@ -14,7 +14,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 640,
     backgroundColor: '#0d0e14',
-    title: 'Nexus',
+    title: 'Heph',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

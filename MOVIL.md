@@ -1,4 +1,4 @@
-# Nexus en Android (APK)
+# Heph en Android (APK)
 
 La APK es un envoltorio nativo (Capacitor/WebView) que abre la misma interfaz que ya está en Render:
 
@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app la **descarga sola en segundo plano** y muestra un aviso cuando ya está lista: se toca **Instalar** (o la notificación) y se abre el instalador. Android siempre pide la confirmación final; ninguna app normal puede saltearla. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.19. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Heph aparece el cartel para pasar a la 1.20. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Heph directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -16,7 +16,7 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 2. Abrir el archivo desde Descargas con la app Archivos.
 3. Si Android pide permiso: **Configuración → Permitir instalación de aplicaciones desconocidas**.
 4. Si aparece Play Protect: **Más información → Instalar de todos modos**.
-5. Abrir Nexus y aceptar permisos de **cámara**, **micrófono** y **notificaciones** cuando salten. El permiso de notificaciones es necesario para que lleguen los avisos con la app cerrada.
+5. Abrir Heph y aceptar permisos de **cámara**, **micrófono** y **notificaciones** cuando salten. El permiso de notificaciones es necesario para que lleguen los avisos con la app cerrada.
 
 ## Qué funciona y qué no
 
@@ -25,20 +25,21 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 - ✅ La llamada se puede **minimizar** con el botón **－**: sigue sonando y podés usar el resto de la app; volvés a tocar la barrita flotante para abrirla.
 - ✅ Audio en llamadas; si no arranca, tocar **🔊 Activar sonido** dentro de la llamada.
 - ✅ En los comentarios se ve quién escribió cada uno: nombre, usuario y hace cuánto, además del avatar y el texto.
-- ✅ “Recordarme”: viene activado por defecto en PC y celular; al abrir Nexus entrás solo con tu usuario. Si cerrás sesión a propósito, ahí sí se borran los datos guardados.
+- ✅ “Recordarme”: viene activado por defecto en PC y celular; al abrir Heph entrás solo con tu usuario. Si cerrás sesión a propósito, ahí sí se borran los datos guardados.
 - ✅ Fotos de perfil y archivos guardados dentro de SQLite: ya no desaparecen cuando Render hace un deploy.
-- ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Nexus activo” mientras el servicio sigue prendido.
+- ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Heph activo” mientras el servicio sigue prendido.
 - ✅ Interfaz responsive: menú abajo, chats a pantalla completa **dentro de la app** con botón ←, tarjetas y llamadas adaptadas al celular.
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Comunidades, Perfil y Configuración.
-- ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
+- ✅ Ícono y pantalla de carga con el logo Heph (la H y la palabra HEPH), igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.19. La actualización 1.19 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
+- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.20. La actualización 1.20 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
 
-- ✅ El **horóscopo del Inicio** es una historia de **12 signos**: foto y texto real del día que cambian solos, se cierra con **✕**, **Escape** o al llegar al último. Podés dar ❤️, escribir 💬 y tocar **↗️ Compartir** para poner tu signo en tu propia historia con un mensaje opcional (mg). Al abrir la app en un día nuevo avisa sola.
+- ✅ El **horóscopo del Inicio** es una historia de **12 signos**: foto y texto real del día que cambian solos, se cierra con **✕**, **Escape** o al llegar al último. Tocá la imagen (o **📖 Leer**) para ver general, amor, trabajo, salud, dinero, consejo y compatibilidad con letra grande: el auto-avance se pausa mientras leés. Podés dar ❤️, escribir 💬 y tocar **↗️ Compartir** para poner tu signo en tu propia historia con un mensaje opcional (mg). Al abrir la app en un día nuevo avisa sola.
+- ✅ El nombre de la app es **Heph** y el icono es la **H** estilizada con la palabra HEPH, en escritorio y Android. Los archivos para compartir siguen llamándose `Nexus-Portable.exe` y `Nexus.apk` para no romper las actualizaciones ni las cuentas.
 - ✅ Tus historias muestran el **texto/mensaje** que les pusiste al compartirlas.
 - ✅ Botón **atrás** como en Instagram/Facebook/LinkedIn: vuelve al chat, al perfil o a la pantalla anterior y recién en el **Inicio** sale de la app.
 - ✅ **Ubicación en tiempo real** en la sección 📍: un amigo te la muestra solo si te da permiso; podés pedirla, ver el mapa, revocar el acceso o dejar de compartir la tuya.
-- ✅ Nexus queda **dentro de un contenedor**, no en pantalla completa del sistema: arriba y abajo se reserva el espacio de la hora, la señal, el WiFi y los 3 botones del Android. Ni los títulos ni el menú inferior quedan tapados.
+- ✅ Heph queda **dentro de un contenedor**, no en pantalla completa del sistema: arriba y abajo se reserva el espacio de la hora, la señal, el WiFi y los 3 botones del Android. Ni los títulos ni el menú inferior quedan tapados.
 - ✅ Si la foto de perfil se perdió en un deploy anterior, volvela a subir una vez en **Mi perfil**; desde ahora queda guardada en la base.
 - ✅ El teclado del celular ya no tapa lo que escribís: el campo del chat queda arriba del teclado y la interfaz se achica con él.
 - ✅ Desde el Inicio se puede tocar **➕ Agregar** en la publicación de alguien para mandarle la solicitud de amistad sin entrar a su perfil.

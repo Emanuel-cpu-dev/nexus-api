@@ -1,4 +1,4 @@
-NEXUS EN ANDROID
+HEPH EN ANDROID
 
 1) Mejor: abrir este link en el celular con Chrome y descargar:
    https://nexus-api-cdxi.onrender.com/Nexus.apk
@@ -6,16 +6,16 @@ NEXUS EN ANDROID
 2) Abrirlo desde "Descargas" con la app Archivos, no directamente desde el chat.
 3) Si Android lo bloquea: permitir "Instalar aplicaciones desconocidas".
 4) Si aparece Play Protect: "Más información" -> "Instalar de todos modos".
-5) Abrir Nexus y aceptar permisos de camara, microfono y NOTIFICACIONES.
+5) Abrir Heph y aceptar permisos de camara, microfono y NOTIFICACIONES.
    Sin el permiso de notificaciones no llegan los avisos con la app cerrada.
 
 Es la misma cuenta de siempre: no hay que registrarse de nuevo.
 La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios de pantalla.
 Cuando haya una APK nueva, la app la baja sola en segundo plano y avisa cuando esta lista. Tocá "Instalar" o la notificacion y Android abre el instalador (siempre pide confirmacion).
-La actualizacion 1.18 es obligatoria: ademas del cartel, llega una notificacion al celular y se repite hasta que la app se actualice. El cartel no se puede cerrar.
+La actualizacion 1.20 es obligatoria: ademas del cartel, llega una notificacion al celular y se repite hasta que la app se actualice. El cartel no se puede cerrar.
 Si ya tenes una version anterior, no hace falta el link: el cartel de actualizar aparece solo.
 El link de descarga es solo para instalar por primera vez o si alguien quedo en una version sin actualizador.
-Version actual: 1.18 (actualizador incluido).
+Version actual: 1.20 (actualizador incluido).
 Recordarme viene activado: al abrir la app entrás solo, en el celular y en la PC.
 Llegan avisos con sonido y vibracion de mensajes, llamadas y menciones aunque no tengas la app abierta.
 Al tocar un aviso se abre directamente el chat, la llamada o la publicacion donde te mencionaron.
@@ -31,8 +31,8 @@ Las fotos ya no se pierden con los updates; si una vieja no aparece, volvé a su
 En Inicio, Amigos, Chats, Grupos, Ubicación, Perfil y Ajustes tirá hacia abajo para actualizar, como en Instagram.
 El boton atras vuelve al chat, al perfil o a la pantalla anterior; recien en Inicio sale de la app.
 En Ubicación podés pedir la posición de un amigo, ver su mapa y quitar el permiso cuando quieras; nadie ve la tuya si vos no lo permitis.
-El ícono y la pantalla de carga son el logo violeta de Nexus, igual que en la PC.
-Nexus queda dentro de su area, no en pantalla completa: arriba y abajo se reserva el espacio de la hora, la bateria, la señal, el wifi y los 3 botones del celular, y no tapan nada.
+El ícono y la pantalla de carga son el logo Heph (la H y la palabra HEPH), igual que en la PC.
+Heph queda dentro de su area, no en pantalla completa: arriba y abajo se reserva el espacio de la hora, la bateria, la señal, el wifi y los 3 botones del celular, y no tapan nada.
 Los avisos de mensajes y llamadas suenan ademas de mostrar la notificacion.
 El teclado ya no tapa lo que escribis en el chat: el campo queda arriba del teclado.
 En el Inicio podés tocar "Agregar" en la publicación de alguien para mandarle la solicitud.

@@ -93,7 +93,7 @@ export default function Location({
       {selected && !point && (
         <div className="ok-box">
           {selected.displayName} compartió su ubicación, pero todavía no mandó una posición.
-          Esperá a que abra Nexus con el GPS activado.
+          Esperá a que abra Heph con el GPS activado.
         </div>
       )}
 

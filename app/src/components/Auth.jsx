@@ -88,8 +88,8 @@ export default function Auth({ onAuthenticated }) {
   return (
     <div className="auth-screen">
       <div className="auth-card">
-        <div className="brand-mark">N</div>
-        <h1>Nexus</h1>
+        <div className="brand-mark">H</div>
+        <h1>Heph</h1>
         <p className="muted">Tu espacio para hablar, llamar y ver videos juntos.</p>
 
         <div className="tabs">
@@ -165,7 +165,7 @@ export default function Auth({ onAuthenticated }) {
             />
             Recordarme en este dispositivo
           </label>
-          <small className="hint">Entrás automáticamente al abrir Nexus, en la PC o en el celular. Los datos quedan solo en tu dispositivo.</small>
+          <small className="hint">Entrás automáticamente al abrir Heph, en la PC o en el celular. Los datos quedan solo en tu dispositivo.</small>
 
           {error && <div className="error-box">{error}</div>}
 
