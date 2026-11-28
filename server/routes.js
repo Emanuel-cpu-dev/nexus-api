@@ -15,6 +15,14 @@ import {
   publicUser,
   getUserById,
   getUserByUsername,
+  getUserByEmail,
+  getUserByGoogleSub,
+  createPasswordlessUser,
+  linkGoogleIdentity,
+  linkEmail,
+  countRecentLoginCodes,
+  createLoginCode,
+  verifyLoginCode,
   getUserByCode,
   searchUsers,
   createToken,
@@ -57,6 +65,8 @@ import {
   latestLocationsFor
 } from './db.js';
 import { getHoroscope, HOROSCOPE_SIGNS } from './horoscope.js';
+import { mailConfigured, sendLoginCode } from './mailer.js';
+import { verifyGoogleIdToken } from './googleAuth.js';
 
 export function createRoutes(io) {
   const router = Router();
@@ -146,6 +156,89 @@ export function createRoutes(io) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     }
     return res.json({ token: createToken(user.id), user: publicUser(user) });
+  });
+
+  function authResponse(userId) {
+    const user = getUserById(userId);
+    return { token: createToken(userId), user: publicUser(user) };
+  }
+
+  function normalizeEmail(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  // Configuración pública: la UI necesita saber si Google y el correo están listos.
+  router.get('/auth/config', (req, res) => res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    emailEnabled: mailConfigured()
+  }));
+
+  router.post('/auth/email/request', async (req, res) => {
+    if (!mailConfigured()) {
+      return res.status(503).json({ error: 'El correo todavía no está configurado. Avisá al administrador.' });
+    }
+    const email = normalizeEmail(req.body?.email);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return res.status(400).json({ error: 'Escribe un correo válido (por ejemplo Hotmail u Outlook).' });
+    }
+    const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    if (countRecentLoginCodes(email, since) >= 3) {
+      return res.status(429).json({ error: 'Pediste muchos códigos. Esperá unos minutos.' });
+    }
+    const code = createLoginCode(email);
+    try {
+      await sendLoginCode(email, code);
+    } catch (err) {
+      console.error('No se pudo enviar el código de ingreso:', err.message);
+      return res.status(502).json({ error: 'No se pudo enviar el correo. Probá de nuevo en unos minutos.' });
+    }
+    return res.json({ ok: true, message: `Te enviamos un código a ${email}.` });
+  });
+
+  router.post('/auth/email/verify', (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const code = String(req.body?.code || '').replace(/\s/g, '');
+    if (!/^\d{6}$/.test(code)) return res.status(400).json({ error: 'El código debe tener 6 números.' });
+    if (!verifyLoginCode(email, code)) {
+      return res.status(401).json({ error: 'Código incorrecto, usado o vencido.' });
+    }
+    let user = getUserByEmail(email);
+    if (!user) {
+      user = createPasswordlessUser({ email, displayName: email.split('@')[0] });
+    } else {
+      linkEmail(user.id, email);
+      user = getUserById(user.id);
+    }
+    return res.json(authResponse(user.id));
+  });
+
+  router.post('/auth/google', async (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    if (!clientId) return res.status(503).json({ error: 'Google todavía no está configurado.' });
+    let payload;
+    try {
+      payload = await verifyGoogleIdToken(req.body?.credential);
+    } catch (err) {
+      return res.status(401).json({ error: err.message || 'No se pudo verificar tu acceso con Google.' });
+    }
+    if (payload.aud !== clientId) return res.status(401).json({ error: 'Ese acceso no es para esta app.' });
+
+    const email = normalizeEmail(payload.email);
+    const sub = String(payload.sub || '');
+    const bySub = getUserByGoogleSub(sub);
+    const byEmail = getUserByEmail(email);
+    if (bySub && byEmail && bySub.id !== byEmail.id) {
+      return res.status(409).json({ error: 'Ese correo ya pertenece a otra cuenta de Heph.' });
+    }
+    let user = bySub || byEmail;
+    if (!user) {
+      user = createPasswordlessUser({ email, googleSub: sub, displayName: payload.name || '' });
+    } else {
+      linkGoogleIdentity(user.id, sub);
+      linkEmail(user.id, email);
+      user = getUserById(user.id);
+    }
+    return res.json(authResponse(user.id));
   });
 
   router.get('/bootstrap', authRequired, async (req, res) => {

@@ -1,5 +1,5 @@
 {
-  "uiCode": 24,
-  "uiVersion": "1.23",
-  "notes": "La foto de perfil siempre se ve redonda y nunca tapa el nombre en las historias, incluso en fotos con forma rara. Las llamadas ahora usan menos CPU y batería: video moderado, menos cuadros y pantallas más livianas."
+  "uiCode": 25,
+  "uiVersion": "1.24",
+  "notes": "Ingreso nuevo y más seguro: las cuentas nuevas entran con Google o con un código de 6 números enviado al correo (Hotmail/Outlook/Gmail), sin guardar contraseña en el dispositivo. Las cuentas anteriores siguen entrando como siempre."
 }

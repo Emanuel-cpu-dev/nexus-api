@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import './restore.js';
@@ -194,6 +194,26 @@ if (!storyColumns.includes('caption')) {
 }
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_repost_user ON posts(user_id, repost_of) WHERE repost_of IS NOT NULL');
 
+// Ingreso sin contraseña para cuentas nuevas. Las columnas son nullable para
+// que las cuentas anteriores sigan entrando con usuario y contraseña.
+const authColumns = db.prepare('PRAGMA table_info(users)').all().map((column) => column.name);
+if (!authColumns.includes('email')) db.exec('ALTER TABLE users ADD COLUMN email TEXT');
+if (!authColumns.includes('email_verified_at')) db.exec('ALTER TABLE users ADD COLUMN email_verified_at TEXT');
+if (!authColumns.includes('google_sub')) db.exec('ALTER TABLE users ADD COLUMN google_sub TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL');
+db.exec(`
+  CREATE TABLE IF NOT EXISTS login_codes (
+    destination TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    consumed_at TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_login_codes_destination ON login_codes(destination);
+`);
+
 // node:sqlite puede devolver un BLOB como objeto tipo-array; lo normalizamos a Buffer.
 export function blobBuffer(value) {
   if (!value) return null;
@@ -298,7 +318,103 @@ export function generateCode() {
   throw new Error('No se pudo generar un código único');
 }
 
+export function getUserByEmail(email) {
+  if (!email) return null;
+  return db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).trim().toLowerCase());
+}
+
+export function getUserByGoogleSub(sub) {
+  if (!sub) return null;
+  return db.prepare('SELECT * FROM users WHERE google_sub = ?').get(String(sub));
+}
+
+function usernameSeed(value) {
+  const clean = String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, '')
+    .replace(/^[._-]+|[._-]+$/g, '')
+    .slice(0, 16);
+  return clean.length >= 3 ? clean : `user${randomBytes(3).toString('hex')}`;
+}
+
+// Cuenta nueva sin contraseña usable: la guardamos con un hash aleatorio que
+// nadie conoce. Solo sirve para mantener el formato existente de users.
+export function createPasswordlessUser({ email = '', googleSub = '', displayName = '' } = {}) {
+  const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+  const seed = usernameSeed(cleanEmail.split('@')[0] || displayName || googleSub);
+  let username = seed;
+  for (let attempt = 0; attempt < 100 && getUserByUsername(username); attempt += 1) {
+    username = `${seed.slice(0, 12)}${randomBytes(2).toString('hex')}`.slice(0, 20);
+  }
+  if (getUserByUsername(username)) throw new Error('No se pudo crear un nombre de usuario único');
+  const id = uid();
+  const name = String(displayName || '').trim().slice(0, 40) || cleanEmail.split('@')[0] || 'Usuario Heph';
+  db.prepare(`
+    INSERT INTO users
+      (id, username, password_hash, display_name, bio, avatar_color, code, created_at, email, email_verified_at, google_sub)
+    VALUES (?, ?, ?, ?, '', '#5865f2', ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    username,
+    hashPassword(randomBytes(32).toString('hex')),
+    name.slice(0, 40),
+    generateCode(),
+    now(),
+    cleanEmail || null,
+    cleanEmail ? now() : null,
+    googleSub || null
+  );
+  return getUserById(id);
+}
+
+export function linkGoogleIdentity(userId, sub) {
+  if (!userId || !sub) return;
+  db.prepare('UPDATE users SET google_sub = ? WHERE id = ? AND google_sub IS NULL').run(String(sub), userId);
+}
+
+export function linkEmail(userId, email) {
+  if (!userId || !email) return;
+  db.prepare(`
+    UPDATE users SET email = ?, email_verified_at = COALESCE(email_verified_at, ?)
+    WHERE id = ? AND email IS NULL
+  `).run(String(email).trim().toLowerCase(), now(), userId);
+}
+
+export function countRecentLoginCodes(destination, since) {
+  const row = db.prepare('SELECT COUNT(*) AS n FROM login_codes WHERE destination = ? AND created_at >= ?')
+    .get(String(destination).trim().toLowerCase(), since);
+  return row?.n || 0;
+}
+
+export function createLoginCode(destination) {
+  const dest = String(destination).trim().toLowerCase();
+  const code = String(randomInt(0, 1000000)).padStart(6, '0');
+  db.prepare('DELETE FROM login_codes WHERE destination = ? OR expires_at < ?').run(dest, now());
+  db.prepare(`
+    INSERT INTO login_codes (destination, code_hash, expires_at, attempts, created_at)
+    VALUES (?, ?, ?, 0, ?)
+  `).run(dest, hashPassword(code), new Date(Date.now() + 10 * 60 * 1000).toISOString(), now());
+  return code;
+}
+
+export function verifyLoginCode(destination, code) {
+  const dest = String(destination).trim().toLowerCase();
+  const row = db.prepare(`
+    SELECT * FROM login_codes
+    WHERE destination = ? AND consumed_at IS NULL
+    ORDER BY created_at DESC LIMIT 1
+  `).get(dest);
+  if (!row || row.expires_at < now() || row.attempts >= 5) return false;
+  if (!verifyPassword(code, row.code_hash)) {
+    db.prepare('UPDATE login_codes SET attempts = attempts + 1 WHERE destination = ? AND consumed_at IS NULL').run(dest);
+    return false;
+  }
+  db.prepare('UPDATE login_codes SET consumed_at = ? WHERE destination = ? AND consumed_at IS NULL').run(now(), dest);
+  return true;
+}
+
 const OWNER_USERNAME = (process.env.OWNER_USERNAME || 'emaggi22').toLowerCase();
+const OWNER_EMAIL = (process.env.OWNER_EMAIL || 'ema.maggio.mdm@gmail.com').toLowerCase();
 
 // Estado de amistad respecto del usuario que está mirando. Se usa para que el
 // feed pueda ofrecer "agregar" o "aceptar" sin obligar a entrar al perfil.
@@ -315,7 +431,11 @@ export function publicUser(row, viewerId = null) {
   const result = {
     id: row.id,
     username: row.username,
-    isOwner: String(row.username || '').toLowerCase() === OWNER_USERNAME,
+    // El dueño se reconoce por el usuario histórico o por un correo verificado.
+    // Nadie puede escribir `email` ni `email_verified_at` desde la API: solo se
+    // setean después de validar un código enviado al buzón o un token de Google.
+    isOwner: String(row.username || '').toLowerCase() === OWNER_USERNAME
+      || Boolean(OWNER_EMAIL && row.email && String(row.email).toLowerCase() === OWNER_EMAIL && row.email_verified_at),
     displayName: row.display_name,
     bio: row.bio || '',
     avatarColor: row.avatar_color || '#5865f2',

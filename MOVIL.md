@@ -26,6 +26,7 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir He
 - ✅ Audio en llamadas; si no arranca, tocar **🔊 Activar sonido** dentro de la llamada.
 - ✅ En los comentarios se ve quién escribió cada uno: nombre, usuario y hace cuánto, además del avatar y el texto.
 - ✅ “Recordarme”: viene activado por defecto en PC y celular; al abrir Heph entrás solo con tu usuario. Si cerrás sesión a propósito, ahí sí se borran los datos guardados.
+- ✅ Las cuentas nuevas ahora entran con **Google** o con un **código por correo** (Hotmail/Outlook/Gmail), sin guardar contraseña. Las cuentas anteriores siguen entrando con usuario y contraseña; nadie tiene que crear una cuenta nueva.
 - ✅ Fotos de perfil y archivos guardados dentro de SQLite: ya no desaparecen cuando Render hace un deploy.
 - ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Heph activo” mientras el servicio sigue prendido.
 - ✅ Interfaz responsive: menú abajo, chats a pantalla completa **dentro de la app** con botón ←, tarjetas y llamadas adaptadas al celular.

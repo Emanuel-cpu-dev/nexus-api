@@ -70,7 +70,19 @@ La URL quedó fija en `https://nexus-api-cdxi.onrender.com`. Los tokens de “Re
 
 ## Configuración solo para el dueño
 
-El usuario `emaggi22` (variable `OWNER_USERNAME`) ve los campos de URL del servidor y TURN (JSON) habilitados. Cualquier otro usuario ve ese bloque en gris, con `disabled`/`readOnly` y el botón “Solo el dueño puede guardar”. El estado `isOwner` viaja en `/api/bootstrap`.
+El usuario `emaggi22` (variable `OWNER_USERNAME`) o la cuenta cuyo correo **verificado** sea `ema.maggio.mdm@gmail.com` (variable `OWNER_EMAIL`) ve los campos de URL del servidor y TURN (JSON) habilitados. Cualquier otro usuario ve ese bloque en gris, con `disabled`/`readOnly` y el botón “Solo el dueño puede guardar”. El estado `isOwner` viaja en `/api/bootstrap`.
+
+Nadie puede escribir `email` ni `email_verified_at` desde la API: esos campos solo se completan después de validar un código enviado al buzón o un token firmado por Google. Por eso el correo del dueño no se puede usurpar cambiando el perfil.
+
+## Ingreso de usuarios nuevos
+
+Las cuentas nuevas entran con **Google** o con un **código de 6 números enviado al correo**. Las cuentas anteriores siguen usando usuario y contraseña. Para activarlo en Render, cargar estas variables en el dashboard (sin pegarlas en el chat):
+
+- `GOOGLE_CLIENT_ID`: ID de cliente web de Google Cloud.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`: SMTP gratuito (por ejemplo Outlook/Hotmail en `smtp.office365.com:587`).
+- `OWNER_EMAIL`: `ema.maggio.mdm@gmail.com` (valor por defecto en el código).
+
+`GET /api/auth/config` dice qué opciones están listas. El código vence en 10 minutos, permite 5 intentos y como máximo 3 envíos por correo cada 15 minutos.
 
 ## Aviso
 
