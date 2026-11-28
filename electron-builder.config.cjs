@@ -4,7 +4,7 @@ module.exports = {
   copyright: 'Copyright © 2026 Heph',
   icon: 'heph.ico',
   directories: { output: 'dist-electron' },
-  files: ['package.json', 'electron/**/*', 'app/dist/**/*'],
+  files: ['package.json', 'electron/**/*', 'app/dist/**/*', 'heph.ico'],
   win: {
     signAndEditExecutable: false,
     target: [

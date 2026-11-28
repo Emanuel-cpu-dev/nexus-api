@@ -19,6 +19,9 @@ HEPH - CÓMO ABRIRLO EN OTRA PC
 
 6) Doble clic en Nexus-Portable.exe. Se abre una ventana llamada "Heph".
    No hay que configurar ninguna URL: la interfaz se carga sola desde Render.
+   La primera vez, Heph pregunta si querés crear un acceso directo en el
+   escritorio: elegí "Crear acceso directo" o "Ahora no". Si lo creás, el
+   ícono de la barra de tareas es la H de Heph (no el de Electron).
 
 Cuando haya cambios nuevos, adentro de Heph aparece un cartel que dice
 "Nueva versión de Heph para la PC". Tocá "Actualizar": la interfaz se
