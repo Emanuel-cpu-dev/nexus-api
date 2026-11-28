@@ -21,6 +21,8 @@ import com.getcapacitor.BridgeActivity;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
+    private int lastKeyboardHeight = -1;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(UpdaterPlugin.class);
@@ -58,10 +60,19 @@ public class MainActivity extends BridgeActivity {
         View content = findViewById(android.R.id.content);
         int mask = WindowInsetsCompat.Type.systemBars()
                 | WindowInsetsCompat.Type.systemGestures()
-                | WindowInsetsCompat.Type.displayCutout();
+                | WindowInsetsCompat.Type.displayCutout()
+                | WindowInsetsCompat.Type.ime();
         ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
-            androidx.core.graphics.Insets bars = insets.getInsets(mask);
+            androidx.core.graphics.Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.systemGestures()
+                            | WindowInsetsCompat.Type.displayCutout());
+            androidx.core.graphics.Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            // El WebView no se achica con el teclado (los insets se consumen acá),
+            // así que le avisamos a React cuánto debe bajar el composer. Restamos
+            // la barra de navegación para no dejar un hueco entre campo y teclado.
+            sendKeyboardHeight(Math.max(0, ime.bottom - bars.bottom));
             return WindowInsetsCompat.CONSUMED;
         });
         ViewCompat.requestApplyInsets(content);
@@ -70,6 +81,18 @@ public class MainActivity extends BridgeActivity {
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2001);
+        }
+    }
+
+    private void sendKeyboardHeight(int height) {
+        if (height == lastKeyboardHeight) return;
+        lastKeyboardHeight = height;
+        try {
+            getBridge().getWebView().evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('nexus:keyboard',{detail:" + height + "}))",
+                    null);
+        } catch (Exception ignored) {
+            // La WebView todavía no está lista: el próximo cambio de insets la alcanza.
         }
     }
 

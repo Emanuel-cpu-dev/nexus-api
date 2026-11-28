@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app muestra un aviso con un botón **Actualizar**: se toca y ella misma descarga e instala la versión nueva. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.10. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.11. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -32,7 +32,7 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 - ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Ver juntos, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.10. La actualización 1.10 es obligatoria, no se puede cerrar y se vuelve a avisar cada minuto hasta que la app informe que ya está actualizada.
+- ✅ Actualizador integrado: aviso dentro de la app con botón **Actualizar** (descarga e instala desde Render). Versión actual: 1.11. La actualización 1.11 es obligatoria, no se puede cerrar y se vuelve a avisar cada minuto hasta que la app informe que ya está actualizada.
 - ✅ Botón **atrás** como en Instagram/Facebook/LinkedIn: vuelve al chat, al perfil o a la pantalla anterior y recién en el **Inicio** sale de la app.
 - ✅ **Ubicación en tiempo real** en la sección 📍: un amigo te la muestra solo si te da permiso; podés pedirla, ver el mapa, revocar el acceso o dejar de compartir la tuya.
 - ✅ Nexus queda **dentro de un contenedor**, no en pantalla completa del sistema: arriba y abajo se reserva el espacio de la hora, la señal, el WiFi y los 3 botones del Android. Ni los títulos ni el menú inferior quedan tapados.

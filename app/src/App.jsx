@@ -95,6 +95,7 @@ export default function App() {
   const historyRef = useRef([]);
   const screenRef = useRef({ view: 'home' });
   const lastLocationSent = useRef(0);
+  const nativeKeyboardRef = useRef(false);
 
   screenRef.current = {
     view, activeChat, cineTarget, profileUser, profileReturnView, communityOpen
@@ -146,26 +147,41 @@ export default function App() {
     }
   }, [toast, myStatus, soundOn]);
 
-  // El teclado del celular reduce el viewport. Reservamos esa altura para que
-  // el campo donde se escribe quede siempre visible, arriba del teclado.
+  // El WebView de Android no cambia de alto cuando aparece el teclado: el
+  // nativo nos manda la altura real con este evento. En navegador/PC, donde no
+  // existe ese evento, seguimos usando el viewport como respaldo.
   useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
     let baseline = viewport?.height || window.innerHeight;
 
+    function setKeyboard(height) {
+      root.style.setProperty('--kb', height > 20 ? `${Math.round(height)}px` : '0px');
+      document.body.classList.toggle('keyboard-open', height > 20);
+      if (height > 20 && /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '')) {
+        document.activeElement.scrollIntoView({ block: 'end', behavior: 'smooth' });
+      }
+    }
+
+    function onNativeKeyboard(event) {
+      nativeKeyboardRef.current = true;
+      setKeyboard(Math.max(0, Number(event.detail) || 0));
+    }
+
     function update() {
+      if (nativeKeyboardRef.current) return;
       const visible = viewport?.height || window.innerHeight;
       if (visible > baseline) baseline = visible;
-      const keyboard = Math.max(0, baseline - visible);
-      root.style.setProperty('--kb', keyboard > 60 ? `${Math.round(keyboard)}px` : '0px');
-      document.body.classList.toggle('keyboard-open', keyboard > 60);
+      setKeyboard(Math.max(0, baseline - visible));
     }
 
     update();
+    window.addEventListener('nexus:keyboard', onNativeKeyboard);
     viewport?.addEventListener('resize', update);
     viewport?.addEventListener('scroll', update);
     window.addEventListener('resize', update);
     return () => {
+      window.removeEventListener('nexus:keyboard', onNativeKeyboard);
       viewport?.removeEventListener('resize', update);
       viewport?.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);

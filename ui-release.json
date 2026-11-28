@@ -1,5 +1,5 @@
 {
-  "uiCode": 11,
-  "uiVersion": "1.10",
-  "notes": "Chat con teclado visible, pedido de amistad desde el inicio, reposts, avisos de quién te puso MG, llamadas con recuperación automática y actualización de la PC sin nuevo exe."
+  "uiCode": 12,
+  "uiVersion": "1.11",
+  "notes": "Corregido el teclado del chat: se ve lo que escribís. Incluye amistad desde el inicio, reposts, avisos de MG, llamadas con recuperación y actualización de la PC sin nuevo exe."
 }
