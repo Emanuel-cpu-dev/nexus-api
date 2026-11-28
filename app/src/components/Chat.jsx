@@ -58,7 +58,7 @@ function MessageBubble({ message, me, unlockedUrl, onOpenOnce }) {
   );
 }
 
-export default function Chat({ chat, me, compact = false, onCall, onCine, onBack }) {
+export default function Chat({ chat, me, compact = false, onCall, onShare, onBack }) {
   const validDm = chat?.type === 'dm' && Boolean(chat.userId);
   const validCommunity = chat?.type === 'community' && Boolean(chat.communityId);
   const canChat = validDm || validCommunity;
@@ -255,7 +255,15 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
           </div>
         </div>
         <button type="button" className="icon-btn" title="Llamar" disabled={!validDm} onClick={() => onCall?.(chat.user)}>📹</button>
-        <button type="button" className="icon-btn" title="Ver juntos" disabled={!canChat} onClick={() => onCine?.(chat)}>📺</button>
+        <button
+          type="button"
+          className="icon-btn"
+          title="Compartir pantalla"
+          disabled={!validDm}
+          onClick={() => onShare?.(chat.user)}
+        >
+          🖥️
+        </button>
       </header>
 
       <div className="messages">

@@ -1,5 +1,5 @@
 {
-  "uiCode": 18,
-  "uiVersion": "1.17",
-  "notes": "Avisos leídos como Instagram: el badge se apaga al abrir Avisos y no vuelve al recargar. Fotos y cámara en el chat, opción \"ver una sola vez\", historias con lista de vistas, fotos de cámara en publicaciones y filtros/desenfoque en videollamadas."
+  "uiCode": 19,
+  "uiVersion": "1.18",
+  "notes": "Editá o borrá tus publicaciones. Historias fijas y sin duplicar: una sola historia propia, barra que queda arriba al scrollear y horóscopo diario para todos. Menciones sin borde, videos que arrancan mudos y se escuchan al tocarlos, y compartir pantalla con audio desde la PC."
 }

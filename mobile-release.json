@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "1.17",
+  "versionCode": 19,
+  "versionName": "1.18",
   "force": true,
-  "notes": "OBLIGATORIA: suenan mensajes y llamadas con la app minimizada, fotos y cámara en el chat (con opción de ver una sola vez), historias con vistas, fotos de cámara en posts y filtros/desenfoque en videollamadas. Además, los badges de Avisos se leen como en Instagram.",
+  "notes": "OBLIGATORIA: editá y borrá tus publicaciones, historias como Instagram con horóscopo diario fijo, menciones sin borde, videos mudos con sonido al tocarlos y compartir pantalla desde la PC con audio. Se descarga sola y se instala con un toque.",
   "apkUrl": "/Nexus.apk"
 }

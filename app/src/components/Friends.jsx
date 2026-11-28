@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { timeAgo } from '../utils.js';
 import Avatar from './Avatar.jsx';
 
-export default function Friends({ me, friends, incoming, outgoing, unread = {}, onDm, onCall, onCine, onProfile, refresh }) {
+export default function Friends({ me, friends, incoming, outgoing, unread = {}, onDm, onCall, onShare, onProfile, refresh }) {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -126,7 +126,7 @@ export default function Friends({ me, friends, incoming, outgoing, unread = {}, 
                   💬 Mensaje {unread[friend.id] > 0 && <span className="dm-badge">{unread[friend.id]}</span>}
                 </button>
                 <button type="button" className="ghost small" onClick={() => onCall(friend)}>📹 Llamar</button>
-                <button type="button" className="ghost small" onClick={() => onCine(friend)}>📺 Ver juntos</button>
+                <button type="button" className="ghost small" onClick={() => onShare?.(friend)}>🖥️ Compartir pantalla</button>
               </div>
             </div>
           ))}

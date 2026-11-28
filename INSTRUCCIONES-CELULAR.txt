@@ -12,10 +12,10 @@ NEXUS EN ANDROID
 Es la misma cuenta de siempre: no hay que registrarse de nuevo.
 La interfaz se actualiza sola desde Render; no hace falta pasar otra APK cuando hagamos cambios de pantalla.
 Cuando haya una APK nueva, la app la baja sola en segundo plano y avisa cuando esta lista. Tocá "Instalar" o la notificacion y Android abre el instalador (siempre pide confirmacion).
-La actualizacion 1.17 es obligatoria: ademas del cartel, llega una notificacion al celular y se repite hasta que la app se actualice. El cartel no se puede cerrar.
+La actualizacion 1.18 es obligatoria: ademas del cartel, llega una notificacion al celular y se repite hasta que la app se actualice. El cartel no se puede cerrar.
 Si ya tenes una version anterior, no hace falta el link: el cartel de actualizar aparece solo.
 El link de descarga es solo para instalar por primera vez o si alguien quedo en una version sin actualizador.
-Version actual: 1.17 (actualizador incluido).
+Version actual: 1.18 (actualizador incluido).
 Recordarme viene activado: al abrir la app entrás solo, en el celular y en la PC.
 Llegan avisos con sonido y vibracion de mensajes, llamadas y menciones aunque no tengas la app abierta.
 Al tocar un aviso se abre directamente el chat, la llamada o la publicacion donde te mencionaron.
@@ -28,7 +28,7 @@ Si alguien sale de la llamada, los demas siguen; el que inicio puede "Finalizar 
 En los comentarios se ve el nombre y usuario de quien escribio cada uno.
 Si te llaman con la app cerrada, el aviso sigue al abrirla.
 Las fotos ya no se pierden con los updates; si una vieja no aparece, volvé a subirla una vez en Mi perfil.
-En Inicio, Amigos, Chats, Ver juntos, Grupos, Ubicación, Perfil y Ajustes tirá hacia abajo para actualizar, como en Instagram.
+En Inicio, Amigos, Chats, Grupos, Ubicación, Perfil y Ajustes tirá hacia abajo para actualizar, como en Instagram.
 El boton atras vuelve al chat, al perfil o a la pantalla anterior; recien en Inicio sale de la app.
 En Ubicación podés pedir la posición de un amigo, ver su mapa y quitar el permiso cuando quieras; nadie ve la tuya si vos no lo permitis.
 El ícono y la pantalla de carga son el logo violeta de Nexus, igual que en la PC.

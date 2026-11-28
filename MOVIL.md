@@ -8,7 +8,7 @@ No cambia el backend ni el `.exe` de escritorio: la interfaz se actualiza sola d
 
 Cuando haya una APK nueva, la app la **descarga sola en segundo plano** y muestra un aviso cuando ya está lista: se toca **Instalar** (o la notificación) y se abre el instalador. Android siempre pide la confirmación final; ninguna app normal puede saltearla. No hace falta abrir links ni pasar otro archivo. Los cambios de interfaz siguen llegando solos, sin actualizar la APK.
 
-Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.17. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
+Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Nexus aparece el cartel para pasar a la 1.18. Además, el servidor manda una **notificación de actualización obligatoria** apenas entra la app y la repite cada minuto mientras siga abierta, aunque hayas sacado la notificación anterior. Al tocarla abre Nexus directamente en el aviso. El cartel no tiene botón de cerrar y solo desaparece cuando la app informa que ya instaló la versión nueva. El link de descarga queda solo para instalar por primera vez o para alguien que se haya quedado en una versión sin actualizador.
 
 ## Instalar en el celular
 
@@ -20,7 +20,7 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 
 ## Qué funciona y qué no
 
-- ✅ Chat, amigos, códigos, estados, comunidad, “Ver juntos” y videollamadas (WebRTC nativo del WebView).
+- ✅ Chat, amigos, códigos, estados, comunidad, historias y videollamadas (WebRTC nativo del WebView).
 - ✅ Llamadas de hasta **5 participantes**: se pueden invitar amigos desde la propia llamada y todos se escuchan. Si sale uno, la sala sigue con los demás; el anfitrión puede **Finalizar sala** desde los controles.
 - ✅ La llamada se puede **minimizar** con el botón **－**: sigue sonando y podés usar el resto de la app; volvés a tocar la barrita flotante para abrirla.
 - ✅ Audio en llamadas; si no arranca, tocar **🔊 Activar sonido** dentro de la llamada.
@@ -29,10 +29,10 @@ Si ya tenés una versión anterior instalada, no necesitás el link: al abrir Ne
 - ✅ Fotos de perfil y archivos guardados dentro de SQLite: ya no desaparecen cuando Render hace un deploy.
 - ✅ Notificaciones de mensajes, solicitudes y llamadas aunque la app esté en segundo plano: suenan, vibran y al tocarlas abren el chat o la llamada. Android muestra una notificación discreta de “Nexus activo” mientras el servicio sigue prendido.
 - ✅ Interfaz responsive: menú abajo, chats a pantalla completa **dentro de la app** con botón ←, tarjetas y llamadas adaptadas al celular.
-- ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Ver juntos, Comunidades, Perfil y Configuración.
+- ✅ **Tirar hacia abajo para actualizar** (como Instagram) en Inicio, Amigos, Chats, Comunidades, Perfil y Configuración.
 - ✅ Ícono y pantalla de carga con el logo violeta de Nexus, igual que en la PC.
 - ✅ La hora, batería y barra del celular ya no tapan la interfaz: el contenido se dibuja por debajo del área segura del sistema.
-- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.17. La actualización 1.17 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
+- ✅ Actualizador integrado: descarga en segundo plano, aviso cuando está lista e instalación con un toque desde la notificación o el botón **Instalar**. Versión actual: 1.18. La actualización 1.18 es obligatoria, no se puede cerrar y se vuelve a avisar hasta que la app informe que ya está actualizada.
 - ✅ Botón **atrás** como en Instagram/Facebook/LinkedIn: vuelve al chat, al perfil o a la pantalla anterior y recién en el **Inicio** sale de la app.
 - ✅ **Ubicación en tiempo real** en la sección 📍: un amigo te la muestra solo si te da permiso; podés pedirla, ver el mapa, revocar el acceso o dejar de compartir la tuya.
 - ✅ Nexus queda **dentro de un contenedor**, no en pantalla completa del sistema: arriba y abajo se reserva el espacio de la hora, la señal, el WiFi y los 3 botones del Android. Ni los títulos ni el menú inferior quedan tapados.

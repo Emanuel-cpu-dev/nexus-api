@@ -4,13 +4,75 @@ import { fileUrl } from '../config.js';
 import { cx, formatSize, isImage, isVideo, timeAgo } from '../utils.js';
 import Avatar from './Avatar.jsx';
 
+// Los videos del feed arrancan mudos al entrar en pantalla, como en Instagram.
+// Un toque al video (o al botón) activa el sonido; al salir de pantalla se pausan.
+function FeedVideo({ file }) {
+  const ref = useRef(null);
+  const [muted, setMuted] = useState(true);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      element?.play?.().catch(() => {});
+      return undefined;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) element.play().catch(() => {});
+        else element.pause();
+      }
+    }, { threshold: 0.35 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (ref.current) ref.current.muted = muted;
+  }, [muted]);
+
+  function toggleSound(event) {
+    event?.stopPropagation();
+    const next = !muted;
+    setMuted(next);
+    const element = ref.current;
+    if (element) {
+      element.muted = next;
+      if (!next) element.play().catch(() => {});
+    }
+  }
+
+  return (
+    <div className="video-wrap">
+      <video
+        ref={ref}
+        className="post-media"
+        src={fileUrl(file.url)}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onClick={toggleSound}
+      />
+      <button
+        type="button"
+        className="video-sound"
+        title={muted ? 'Activar sonido' : 'Silenciar'}
+        onClick={toggleSound}
+      >
+        {muted ? '🔇' : '🔊'}
+      </button>
+    </div>
+  );
+}
+
 function Attachment({ file }) {
   if (!file) return null;
   if (isImage(file.mime)) {
     return <img className="post-media" src={fileUrl(file.url)} alt={file.name} />;
   }
   if (isVideo(file.mime)) {
-    return <video className="post-media" src={fileUrl(file.url)} controls />;
+    return <FeedVideo file={file} />;
   }
   return (
     <a className="file-chip" href={fileUrl(file.url)} target="_blank" rel="noreferrer">
@@ -64,8 +126,16 @@ export default function Feed({
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionUsers, setMentionUsers] = useState([]);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [menuId, setMenuId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editFileId, setEditFileId] = useState(null);
+  const [editFileName, setEditFileName] = useState('');
+  const [editProgress, setEditProgress] = useState(null);
   const fileInput = useRef(null);
   const cameraInput = useRef(null);
+  const editFileInput = useRef(null);
+  const editCameraInput = useRef(null);
   const textareaRef = useRef(null);
   const mentionRange = useRef(null);
 
@@ -302,6 +372,66 @@ export default function Feed({
     }
   }
 
+  function startEdit(post) {
+    setError('');
+    setMenuId(null);
+    setEditingId(post.id);
+    setEditText(post.text || '');
+    setEditFileId(post.file?.id || null);
+    setEditFileName(post.file?.name || '');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText('');
+    setEditFileId(null);
+    setEditFileName('');
+    setEditProgress(null);
+  }
+
+  async function attachEdit(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setError('');
+    setEditProgress(0);
+    try {
+      const uploaded = await uploadFile(file, setEditProgress);
+      setEditFileId(uploaded.id);
+      setEditFileName(uploaded.name);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEditProgress(null);
+      event.target.value = '';
+    }
+  }
+
+  async function saveEdit(post) {
+    setError('');
+    try {
+      const data = await api(`/posts/${post.id}`, {
+        method: 'PATCH',
+        body: { text: editText.trim(), fileId: editFileId }
+      });
+      setPosts((current) => current.map((item) => (item.id === post.id ? data.post : item)));
+      cancelEdit();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removePost(post) {
+    setMenuId(null);
+    setError('');
+    if (!window.confirm('¿Borrar esta publicación? No se puede deshacer.')) return;
+    try {
+      await api(`/posts/${post.id}`, { method: 'DELETE' });
+      setPosts((current) => current.filter((item) => item.id !== post.id && item.repostOf?.id !== post.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   function friendAction(author) {
     if (!author?.id || author.id === me?.id) return null;
     const state = author.friendState || 'none';
@@ -388,13 +518,58 @@ export default function Feed({
                 <Avatar user={post.author} />
                 <div className="grow">
                   <strong className="post-author-name">{post.author?.displayName}</strong>
-                  <div className="tiny muted">@{post.author?.username} · {timeAgo(post.createdAt)}</div>
+                  <div className="tiny muted">
+                    @{post.author?.username} · {timeAgo(post.createdAt)}
+                    {post.updatedAt ? ' · editado' : ''}
+                  </div>
                 </div>
               </button>
+              {post.userId === me?.id && (
+                <div className="post-menu-wrap">
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    title="Opciones de la publicación"
+                    onClick={() => setMenuId(menuId === post.id ? null : post.id)}
+                  >
+                    ⋯
+                  </button>
+                  {menuId === post.id && (
+                    <div className="post-menu">
+                      {!post.repostOf && (
+                        <button type="button" onClick={() => startEdit(post)}>✏️ Editar</button>
+                      )}
+                      <button type="button" className="danger-text" onClick={() => removePost(post)}>
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </header>
             {post.repostOf && <div className="repost-badge">🔁 {post.userId === me?.id ? 'Reposteaste' : `${post.author?.displayName || 'Alguien'} reposteó`}</div>}
-            {post.text && <PostText text={post.text} mentions={post.mentions} onProfile={onProfile} />}
-            <Attachment file={post.file} />
+            {editingId === post.id ? (
+              <div className="post-edit">
+                <textarea value={editText} onChange={(event) => setEditText(event.target.value)} rows={4} />
+                {editFileId && (
+                  <div className="chip">📎 {editFileName} <button type="button" onClick={() => { setEditFileId(null); setEditFileName(''); }}>✕</button></div>
+                )}
+                {editProgress !== null && <div className="progress"><div style={{ width: `${editProgress}%` }} /></div>}
+                <div className="composer-actions">
+                  <input ref={editFileInput} type="file" accept="image/*,video/*" hidden onChange={attachEdit} />
+                  <input ref={editCameraInput} type="file" accept="image/*" capture="environment" hidden onChange={attachEdit} />
+                  <button type="button" className="ghost small" onClick={() => editFileInput.current?.click()}>📎 Cambiar foto</button>
+                  <button type="button" className="ghost small" onClick={() => editCameraInput.current?.click()}>📷 Cámara</button>
+                  <button type="button" className="ghost small" onClick={() => saveEdit(post)}>💾 Guardar</button>
+                  <button type="button" className="ghost small" onClick={cancelEdit}>Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {post.text && <PostText text={post.text} mentions={post.mentions} onProfile={onProfile} />}
+                <Attachment file={post.file} />
+              </>
+            )}
             {post.repostOf && (
               <div className="repost-quote">
                 {post.repostOf.unavailable ? (

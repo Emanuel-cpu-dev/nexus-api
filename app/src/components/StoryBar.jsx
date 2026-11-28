@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
 import { api, uploadFile } from '../api.js';
 import Avatar from './Avatar.jsx';
+import HoroscopeViewer from './HoroscopeViewer.jsx';
 
-export default function StoryBar({ groups = [], me, onOpen, onChange, onError }) {
+export default function StoryBar({ groups = [], me, horoscope, onOpen, onChange, onError }) {
   const galleryRef = useRef(null);
   const cameraRef = useRef(null);
   const [progress, setProgress] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [horoscopeOpen, setHoroscopeOpen] = useState(false);
   const own = groups.find((group) => group.user?.id === me?.id);
   const others = groups.filter((group) => group.user?.id !== me?.id);
 
@@ -13,6 +16,7 @@ export default function StoryBar({ groups = [], me, onOpen, onChange, onError })
     const file = event.target.files?.[0];
     if (!file) return;
     setProgress(0);
+    setCreateOpen(false);
     try {
       const uploaded = await uploadFile(file, setProgress);
       if (!/^(image|video)\//.test(uploaded?.mime || '')) {
@@ -35,28 +39,33 @@ export default function StoryBar({ groups = [], me, onOpen, onChange, onError })
   return (
     <div className="story-bar card">
       <div className="story-bar-list">
-        <button type="button" className="story-item" onClick={() => galleryRef.current?.click()}>
-          <span className={`story-ring ${own?.seen ? 'seen' : ''}`}>
-            <Avatar user={me} size="sm" />
-            <span className="story-plus">+</span>
-          </span>
-          <span className="story-name">Tu historia</span>
-        </button>
-        <button type="button" className="story-item" onClick={() => cameraRef.current?.click()}>
-          <span className="story-ring story-camera">
-            <Avatar user={me} size="sm" />
-            <span className="story-plus">📷</span>
-          </span>
-          <span className="story-name">Sacar foto</span>
-        </button>
-        {own?.items?.length > 0 && (
-          <button type="button" className="story-item" onClick={() => openGroup(own)}>
-            <span className={`story-ring ${own.seen ? 'seen' : ''}`}>
-              <Avatar user={own.user} size="sm" />
-            </span>
-            <span className="story-name">Ver la tuya</span>
+        {horoscope && (
+          <button type="button" className="story-item horoscope-item" onClick={() => setHoroscopeOpen(true)}>
+            <span className="story-ring horoscope-ring"><span className="story-symbol">✨</span></span>
+            <span className="story-name">Horóscopo</span>
+            <span className="story-today">HOY</span>
           </button>
         )}
+        <div className="story-own-wrap">
+          <button
+            type="button"
+            className="story-item"
+            onClick={() => (own?.items?.length ? openGroup(own) : setCreateOpen((value) => !value))}
+          >
+            <span className={`story-ring ${own?.seen ? 'seen' : ''}`}>
+              <Avatar user={me} size="sm" />
+            </span>
+            <span className="story-name">Tu historia</span>
+          </button>
+          <button
+            type="button"
+            className="story-plus"
+            title="Agregar a tu historia"
+            onClick={() => setCreateOpen((value) => !value)}
+          >
+            +
+          </button>
+        </div>
         {others.map((group) => (
           <button type="button" className="story-item" key={group.user.id} onClick={() => openGroup(group)}>
             <span className={`story-ring ${group.seen ? 'seen' : ''}`}>
@@ -66,16 +75,16 @@ export default function StoryBar({ groups = [], me, onOpen, onChange, onError })
           </button>
         ))}
       </div>
+      {createOpen && (
+        <div className="story-create-menu">
+          <button type="button" onClick={() => cameraRef.current?.click()}>📷 Sacar foto</button>
+          <button type="button" onClick={() => galleryRef.current?.click()}>🖼️ Elegir foto o video</button>
+        </div>
+      )}
       {progress !== null && (
         <div className="progress story-progress-upload"><div style={{ width: `${progress}%` }} /></div>
       )}
-      <input
-        ref={galleryRef}
-        type="file"
-        accept="image/*,video/*"
-        hidden
-        onChange={attach}
-      />
+      <input ref={galleryRef} type="file" accept="image/*,video/*" hidden onChange={attach} />
       <input
         ref={cameraRef}
         type="file"
@@ -84,6 +93,9 @@ export default function StoryBar({ groups = [], me, onOpen, onChange, onError })
         hidden
         onChange={attach}
       />
+      {horoscopeOpen && (
+        <HoroscopeViewer data={horoscope} onClose={() => setHoroscopeOpen(false)} />
+      )}
     </div>
   );
 }

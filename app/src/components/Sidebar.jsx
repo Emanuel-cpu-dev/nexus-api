@@ -6,7 +6,6 @@ const NAV = [
   { id: 'friends', icon: '👥', label: 'Amigos', short: 'Amigos' },
   { id: 'messages', icon: '💬', label: 'Mensajes', short: 'Chats' },
   { id: 'notifications', icon: '🔔', label: 'Avisos', short: 'Avisos' },
-  { id: 'cine', icon: '📺', label: 'Ver juntos', short: 'Ver' },
   { id: 'communities', icon: '🌐', label: 'Comunidades', short: 'Grupos' },
   { id: 'location', icon: '📍', label: 'Ubicación', short: 'Ubicación' },
   { id: 'profile', icon: '👤', label: 'Mi perfil', short: 'Perfil' },

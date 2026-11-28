@@ -79,7 +79,8 @@ db.exec(`
     text TEXT DEFAULT '',
     file_id TEXT REFERENCES files(id) ON DELETE SET NULL,
     repost_of TEXT REFERENCES posts(id) ON DELETE CASCADE,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT
   );
   CREATE TABLE IF NOT EXISTS likes (
     post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
@@ -168,6 +169,9 @@ if (!fileColumns.includes('data')) {
 const postColumns = db.prepare('PRAGMA table_info(posts)').all().map((column) => column.name);
 if (!postColumns.includes('repost_of')) {
   db.exec('ALTER TABLE posts ADD COLUMN repost_of TEXT REFERENCES posts(id) ON DELETE CASCADE');
+}
+if (!postColumns.includes('updated_at')) {
+  db.exec('ALTER TABLE posts ADD COLUMN updated_at TEXT');
 }
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_repost_user ON posts(user_id, repost_of) WHERE repost_of IS NOT NULL');
 
@@ -800,7 +804,8 @@ export function postShape(row, viewerId, includeRepost = true) {
     repostOf,
     comments: commentsFor(row.id),
     mentions: mentionsForPost(row.id, viewerId),
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || null
   };
 }
 

@@ -205,10 +205,10 @@ export default function Cine({ target, chat, me, friends, onCall, onCine }) {
     <div className="cine-layout">
       <div className="cine-main">
         <div className="cine-title">
-          <h2>📺 Ver juntos</h2>
+          <h2>📺 Sala de video</h2>
           <span className="chip">{key}</span>
         </div>
-        <p className="muted">Sala sincronizada: todos ven el mismo video al mismo tiempo.</p>
+        <p className="muted">Compatibilidad con salas antiguas. Para ver cualquier cosa, compartí tu pantalla desde la PC.</p>
 
         <form onSubmit={loadUrl} className="inline-form">
           <input

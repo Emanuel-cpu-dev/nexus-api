@@ -54,6 +54,7 @@ import {
   latestLocationFor,
   latestLocationsFor
 } from './db.js';
+import { horoscopeFor } from './horoscope.js';
 
 export function createRoutes(io) {
   const router = Router();
@@ -179,6 +180,7 @@ export function createRoutes(io) {
       mentionCount: noticeCounts.mentions,
       stories: storyFeed.groups,
       storyCount: storyFeed.storyCount,
+      horoscope: horoscopeFor(),
       location: {
         sharedWith: locationViewersFor(id),
         sharedBy: locationOwnersFor(id),
@@ -379,6 +381,9 @@ export function createRoutes(io) {
     return res.json({ ok: true });
   });
 
+  // Historia fija: cambia sola cada día y es igual para todos. No se guarda en SQLite.
+  router.get('/horoscope', authRequired, (req, res) => res.json(horoscopeFor()));
+
   // Historias: solo el autor y sus amigos pueden verlas; viven 24 horas.
   router.get('/stories', authRequired, (req, res) => {
     return res.json(storiesFor(req.user.id));
@@ -466,6 +471,49 @@ export function createRoutes(io) {
       });
     }
     return res.status(201).json({ post, mentions: tagged });
+  });
+
+  // Editar publicación propia: texto y archivo. Los reposts no se editan.
+  router.patch('/posts/:id', authRequired, (req, res) => {
+    const row = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Publicación no encontrada.' });
+    if (row.user_id !== req.user.id) return res.status(403).json({ error: 'Solo podés editar tus publicaciones.' });
+    if (row.repost_of) return res.status(400).json({ error: 'Los reposts no se editan.' });
+    const text = String(req.body?.text ?? row.text ?? '').trim().slice(0, 5000);
+    const hasFile = Object.prototype.hasOwnProperty.call(req.body || {}, 'fileId');
+    const fileId = hasFile ? (req.body.fileId || null) : row.file_id;
+    if (!text && !fileId) return res.status(400).json({ error: 'Escribe algo o dejá una foto.' });
+    if (fileId && !getFileById(fileId)) return res.status(400).json({ error: 'El archivo no existe.' });
+    db.prepare('UPDATE posts SET text = ?, file_id = ?, updated_at = ? WHERE id = ?')
+      .run(text, fileId, now(), row.id);
+    const tagged = saveMentions(row.id, text, req.user.id);
+    for (const user of tagged) {
+      io.to(`user:${user.id}`).emit('mention:new', {
+        postId: row.id,
+        postText: text,
+        hasFile: Boolean(fileId),
+        user: publicUser(req.user, req.user.id),
+        createdAt: now()
+      });
+    }
+    return res.json({
+      post: postShape(db.prepare('SELECT * FROM posts WHERE id = ?').get(row.id), req.user.id),
+      mentions: tagged
+    });
+  });
+
+  router.delete('/posts/:id', authRequired, (req, res) => {
+    const row = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Publicación no encontrada.' });
+    if (row.user_id !== req.user.id) return res.status(403).json({ error: 'Solo podés borrar tus publicaciones.' });
+    db.prepare('DELETE FROM posts WHERE id = ?').run(row.id);
+    if (row.community_id) {
+      io.to(`community:${row.community_id}`).emit('post:deleted', {
+        id: row.id,
+        communityId: row.community_id
+      });
+    }
+    return res.json({ ok: true, id: row.id });
   });
 
   router.post('/posts/:id/like', authRequired, (req, res) => {

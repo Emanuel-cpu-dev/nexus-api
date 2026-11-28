@@ -380,25 +380,50 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       setError('En el celular no se puede compartir pantalla. Usá la app de escritorio.');
       return;
     }
+    setError('');
     try {
       let stream;
+      let systemAudio = false;
       if (window.electronAPI?.getSources) {
         const sources = await window.electronAPI.getSources();
         const source = sources.find((item) => /screen|pantalla/i.test(item.name)) || sources[0];
         if (!source) throw new Error('No se detectó ninguna pantalla.');
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: source.id,
-              maxWidth: 1920,
-              maxHeight: 1080
+        const video = {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: source.id,
+            maxWidth: 1920,
+            maxHeight: 1080
+          }
+        };
+        try {
+          // En Windows/Mac el audio de escritorio se toma con el mismo origen.
+          stream = await navigator.mediaDevices.getUserMedia({
+            video,
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: String(source.id).split(':')[0]
+              }
             }
-          },
-          audio: false
-        });
+          });
+          systemAudio = stream.getAudioTracks().length > 0;
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+        }
       } else {
-        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: 30 },
+            audio: { systemAudio: 'include', echoCancellation: false, noiseSuppression: false }
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        }
+        systemAudio = stream.getAudioTracks().length > 0;
+      }
+      if (!systemAudio) {
+        setError('Se comparte la imagen. Para que se escuche, elegí una pestaña con audio (o permití el audio del sistema).');
       }
       const track = stream.getVideoTracks()[0];
       // Si hay un filtro activo, localStream tiene el track del canvas; la
@@ -407,7 +432,11 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         cameraRef.current = localStream?.getVideoTracks()[0] || null;
       }
       screenRef.current = stream;
-      const next = new MediaStream([...(localStream?.getAudioTracks() || []), track]);
+      // Si la fuente trae audio, viaja ese; si no, se mantiene el micrófono.
+      const audio = systemAudio
+        ? stream.getAudioTracks()
+        : (localStream?.getAudioTracks() || []);
+      const next = new MediaStream([...audio, track]);
       await rtcRef.current?.replaceVideoTrack(track, next);
       setLocalStream(next);
       setSharing(true);

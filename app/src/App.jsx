@@ -88,6 +88,7 @@ export default function App() {
   const [stories, setStories] = useState([]);
   const [storyCount, setStoryCount] = useState(0);
   const [storyOpen, setStoryOpen] = useState(null);
+  const [horoscope, setHoroscope] = useState(null);
   const [focusPostId, setFocusPostId] = useState(null);
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -400,6 +401,7 @@ export default function App() {
     setStories([]);
     setStoryCount(0);
     setStoryOpen(null);
+    setHoroscope(null);
     setCall(null);
     setView('home');
     historyRef.current = [];
@@ -421,6 +423,7 @@ export default function App() {
       });
       setStories(data.stories || []);
       setStoryCount(Number(data.storyCount) || 0);
+      if (data.horoscope) setHoroscope(data.horoscope);
       if (data.location) setLocationState(data.location);
     } catch (error) {
       toast(error.message);
@@ -437,6 +440,17 @@ export default function App() {
       // Las historias son opcionales: no rompemos el resto de la app.
     }
   }, []);
+
+  // Si la app queda abierta de un día para otro, el horóscopo se renueva solo.
+  useEffect(() => {
+    if (!horoscope?.date) return undefined;
+    const timer = setInterval(() => {
+      const today = new Date().toISOString().slice(0, 10);
+      if (horoscope.date === today) return;
+      api('/horoscope').then(setHoroscope).catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [horoscope?.date]);
 
   // Marcamos la lectura en el servidor para que el badge no vuelva a aparecer
   // después de recargar. Es el mismo comportamiento que Instagram.
@@ -561,7 +575,8 @@ export default function App() {
         });
         setStories(data.stories || []);
         setStoryCount(Number(data.storyCount) || 0);
-      if (data.location) setLocationState(data.location);
+        if (data.horoscope) setHoroscope(data.horoscope);
+        if (data.location) setLocationState(data.location);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -795,7 +810,7 @@ export default function App() {
       return;
     }
     const patch = { view: next, focusPostId: null };
-    // Al entrar a "Ver juntos" desde el menú sin objetivo, usar la sala general.
+    // Compatibilidad con enlaces viejos: si entran a la sala general, usar ese objetivo.
     if (next === 'cine' && !cineTarget) patch.cineTarget = generalCine;
     // En el celular, tocar "Chats" desde otra sección debe mostrar la lista.
     if (next === 'messages') patch.activeChat = null;
@@ -934,7 +949,7 @@ export default function App() {
 
   const openCineForChat = useCallback((chat) => {
     if (!chat || (chat.type !== 'dm' && chat.type !== 'community')) {
-      toast('Abre un chat con un amigo o una comunidad para ver juntos.');
+      toast('Abre un chat con un amigo para compartir tu pantalla.');
       return;
     }
     pushScreen({
@@ -965,6 +980,33 @@ export default function App() {
         peers: [me.id, friend.id],
         video: true
       });
+    });
+  }, [me?.id, toast]);
+
+  // Igual que Discord: abrimos una sala de audio y el usuario elige qué ventana
+  // o pestaña quiere mostrar. El audio de esa fuente viaja con el video.
+  const startScreenShare = useCallback((friend) => {
+    if (!friend?.id) {
+      toast('Abre un chat con un amigo para compartir tu pantalla.');
+      return;
+    }
+    const socket = getSocket();
+    if (!socket?.connected) {
+      toast('Sin conexión con el servidor. No se puede compartir la pantalla.');
+      return;
+    }
+    socket.emit('call:invite', { to: [friend.id], video: false }, (response, callId) => {
+      if (response?.error) toast(response.error);
+      else {
+        setCall({
+          status: 'outgoing',
+          callId,
+          hostId: me.id,
+          peers: [me.id, friend.id],
+          video: false
+        });
+        toast('Cuando acepten, tocá 🖥️ Compartir pantalla y elegí la ventana o pestaña.');
+      }
     });
   }, [me?.id, toast]);
 
@@ -1140,16 +1182,10 @@ export default function App() {
         )}
         {view === 'home' && (
           <div className="page home-page">
-            <div className="hero card">
-              <div>
-                <h1>¡Hola, {me.displayName}! 👋</h1>
-                <p className="muted">Comparte tu código, chatea, llama y ve videos en sincronía.</p>
-              </div>
-              <button type="button" className="primary" onClick={() => changeView('friends')}>👥 Mis amigos</button>
-            </div>
             <StoryBar
               groups={stories}
               me={me}
+              horoscope={horoscope}
               onOpen={(userId, storyId) => setStoryOpen({ userId, storyId })}
               onChange={refreshStories}
               onError={(message) => toast(message)}
@@ -1175,7 +1211,7 @@ export default function App() {
             refresh={load}
             onDm={openDm}
             onCall={startCall}
-            onCine={openCineForFriend}
+            onShare={startScreenShare}
             onProfile={openProfile}
           />
         )}
@@ -1210,7 +1246,7 @@ export default function App() {
               me={me}
               onBack={handleBack}
               onCall={(user) => startCall(user)}
-              onCine={openCineForChat}
+              onShare={(user) => startScreenShare(user)}
             />
           </div>
         )}
@@ -1245,7 +1281,7 @@ export default function App() {
                 me={me}
                 compact
                 onCall={(user) => startCall(user)}
-                onCine={openCineForChat}
+                onShare={(user) => startScreenShare(user)}
               />
             </div>
           </div>
