@@ -335,6 +335,17 @@ p { margin: 6px 0 12px; }
 .file-chip { display: inline-block; margin: 8px 0; color: #aab6ff; text-decoration: none; }
 .file-chip:hover { text-decoration: underline; }
 .post-actions { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.repost-badge { color: #7dd3a8; font-size: 12px; margin-bottom: 4px; }
+.repost-quote {
+  border-left: 3px solid var(--accent);
+  background: #12141d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+.repost-quote .post-author { padding: 0; }
+.repost-quote .post-text { margin: 8px 0 0; font-size: 13px; }
+.repost-unavailable { color: var(--muted); font-style: italic; font-size: 12px; }
 .comments { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .comment { display: flex; gap: 8px; align-items: flex-start; }
 .comment-body { flex: 1; min-width: 0; }
@@ -357,6 +368,12 @@ p { margin: 6px 0 12px; }
 .friend-card { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .friend-head { display: flex; align-items: center; gap: 10px; }
 .friend-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+/* ---------- Avisos de MG ---------- */
+.likes-list { display: flex; flex-direction: column; gap: 10px; }
+.like-row { display: flex; flex-direction: column; gap: 8px; }
+.like-row .post-author { width: 100%; }
+.like-post { padding-left: 42px; overflow-wrap: anywhere; }
 
 /* ---------- Chat ---------- */
 .messages-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; height: 100%; max-width: 1180px; margin: 0 auto; min-height: 0; }
@@ -449,7 +466,9 @@ p { margin: 6px 0 12px; }
 .invite-limit { padding: 0 14px 10px; }
 .call-mini { position: fixed; right: 16px; bottom: 18px; z-index: 70; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 999px; background: rgba(12, 14, 22, .94); box-shadow: 0 12px 30px rgba(0, 0, 0, .45); backdrop-filter: blur(8px); }
 .call-mini-open { background: transparent; border: 0; color: var(--text); font-size: 12px; font-weight: 600; padding: 4px 6px; cursor: pointer; }
-.call-media-hidden { position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+/* 1x1 dentro del viewport: si se saca totalmente de pantalla, Android/WebView
+   congela el último frame y la cámara del otro se ve detenida al restaurar. */
+.call-media-hidden { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 .call-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px 16px; border-top: 1px solid var(--line); }
 .control { background: var(--card-2); color: var(--text); border: 1px solid var(--line); }
 .control.off { color: #ffadad; border-color: rgba(237, 66, 69, .5); }
@@ -516,7 +535,9 @@ p { margin: 6px 0 12px; }
 
 /* Celular: menú abajo, una sola columna y gestos táctiles */
 @media (max-width: 640px) {
-  .app-shell { flex-direction: column; height: 100dvh; }
+  /* --kb lo calcula el WebView cuando abre el teclado: así el composer queda
+     por encima del teclado en vez de quedar tapado. */
+  .app-shell { flex-direction: column; height: calc(100dvh - var(--kb, 0px)); }
 
   .sidebar {
     order: 2;
@@ -609,7 +630,7 @@ p { margin: 6px 0 12px; }
   .messages { padding: 12px; gap: 10px; }
   .bubble-row { max-width: 88%; }
   .bubble-media { max-width: 70vw; max-height: 38vh; }
-  .chat-composer { padding: 10px; gap: 6px; }
+  .chat-composer { position: sticky; bottom: 0; z-index: 6; background: var(--card); padding: 10px; gap: 6px; }
   .chat-composer input[type='text'] { min-width: 0; }
   .chat-composer .primary { padding: 10px 12px; }
 
@@ -641,7 +662,7 @@ p { margin: 6px 0 12px; }
   .update-banner .grow { flex: 1 1 calc(100% - 70px); }
   .update-banner .primary { flex: 1 1 100%; }
 
-  .toast-stack { left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .toast-stack { left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom) + var(--kb, 0px)); }
   .toast { max-width: none; width: 100%; }
 
   .auth-screen { padding: 16px; }

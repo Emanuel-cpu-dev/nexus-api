@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "1.9",
+  "versionCode": 11,
+  "versionName": "1.10",
   "force": true,
-  "notes": "OBLIGATORIA: corregido el contenedor arriba y abajo contra la hora, señal, WiFi y botones del celular. Incluye avisos repetidos, atrás pantalla por pantalla y ubicación con permiso.",
+  "notes": "OBLIGATORIA: chat con teclado visible, agregar amigos desde el inicio, reposts, avisos de quién te puso MG y llamadas con recuperación automática. La PC se actualiza sola sin nuevo exe.",
   "apkUrl": "/Nexus.apk"
 }

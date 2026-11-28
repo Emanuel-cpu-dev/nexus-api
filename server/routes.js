@@ -28,6 +28,7 @@ import {
   postsFor,
   postsByUser,
   postShape,
+  likeNotificationsFor,
   saveFileData,
   blobBuffer,
   commentsFor,
@@ -161,6 +162,7 @@ export function createRoutes(io) {
       communities: communitiesFor(id),
       posts: postsFor(id),
       unread: unreadCountsFor(id),
+      likeCount: likeNotificationsFor(id).length,
       location: {
         sharedWith: locationViewersFor(id),
         sharedBy: locationOwnersFor(id),
@@ -215,7 +217,7 @@ export function createRoutes(io) {
       && user.id !== req.user.id
       && !areFriends(user.id, req.user.id);
     return res.json({
-      user: { ...publicUser(user), online: isOnline(user.id), status: getStatus(user.id) },
+      user: { ...publicUser(user, req.user.id), online: isOnline(user.id), status: getStatus(user.id) },
       private: privateForMe,
       posts: privateForMe ? [] : postsByUser(user.id, req.user.id)
     });
@@ -340,6 +342,11 @@ export function createRoutes(io) {
     return res.json({ community: communitiesFor(req.user.id).find((c) => c.id === community.id) });
   });
 
+  // Avisos sociales: quién le puso "me gusta" a las publicaciones del usuario.
+  router.get('/likes/me', authRequired, (req, res) => {
+    return res.json({ likes: likeNotificationsFor(req.user.id) });
+  });
+
   router.get('/posts', authRequired, (req, res) => {
     const communityId = req.query.communityId || null;
     if (communityId && !isCommunityMember(req.user.id, communityId)) {
@@ -367,16 +374,61 @@ export function createRoutes(io) {
   });
 
   router.post('/posts/:id/like', authRequired, (req, res) => {
-    const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(req.params.id);
+    const post = db.prepare('SELECT id, user_id, text FROM posts WHERE id = ?').get(req.params.id);
     if (!post) return res.status(404).json({ error: 'Publicación no encontrada.' });
     const exists = db.prepare('SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?').get(post.id, req.user.id);
     if (exists) {
       db.prepare('DELETE FROM likes WHERE post_id = ? AND user_id = ?').run(post.id, req.user.id);
     } else {
       db.prepare('INSERT INTO likes (post_id, user_id, created_at) VALUES (?, ?, ?)').run(post.id, req.user.id, now());
+      // Aviso en vivo al autor. Va por su propio canal, no por dm:message.
+      io.to(`user:${post.user_id}`).emit('like:new', {
+        postId: post.id,
+        postText: post.text || '',
+        user: publicUser(req.user, req.user.id),
+        createdAt: now()
+      });
     }
     const likes = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(post.id).c;
     return res.json({ liked: !exists, likes });
+  });
+
+  // Repost al estilo Twitter: aparece en el feed con la publicación original
+  // incrustada. Volver a tocarlo lo deshace.
+  router.post('/posts/:id/repost', authRequired, (req, res) => {
+    let target = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Publicación no encontrada.' });
+    // Si reposteamos un repost, apuntamos siempre a la publicación original.
+    const seen = new Set();
+    while (target.repost_of && !seen.has(target.repost_of)) {
+      seen.add(target.repost_of);
+      const parent = db.prepare('SELECT * FROM posts WHERE id = ?').get(target.repost_of);
+      if (!parent) break;
+      target = parent;
+    }
+    if (target.community_id && !isCommunityMember(req.user.id, target.community_id)) {
+      return res.status(403).json({ error: 'Debes unirte a la comunidad.' });
+    }
+
+    const existing = db.prepare('SELECT id FROM posts WHERE repost_of = ? AND user_id = ?').get(target.id, req.user.id);
+    let repost = null;
+    if (existing) {
+      db.prepare('DELETE FROM posts WHERE id = ?').run(existing.id);
+    } else {
+      const id = uid();
+      const quote = String(req.body?.text || '').trim().slice(0, 5000);
+      db.prepare(`
+        INSERT INTO posts (id, user_id, community_id, text, file_id, repost_of, created_at)
+        VALUES (?, ?, ?, ?, NULL, ?, ?)
+      `).run(id, req.user.id, target.community_id || null, quote, target.id, now());
+      repost = postShape(db.prepare('SELECT * FROM posts WHERE id = ?').get(id), req.user.id);
+      if (target.community_id) io.to(`community:${target.community_id}`).emit('post:new', {
+        communityId: target.community_id,
+        post: repost
+      });
+    }
+    const reposts = db.prepare('SELECT COUNT(*) AS c FROM posts WHERE repost_of = ?').get(target.id).c;
+    return res.json({ reposted: !existing, reposts, post: repost });
   });
 
   router.get('/posts/:id/comments', authRequired, (req, res) => {

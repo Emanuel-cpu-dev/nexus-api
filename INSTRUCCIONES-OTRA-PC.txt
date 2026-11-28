@@ -20,4 +20,9 @@ NEXUS - CÓMO ABRIRLO EN OTRA PC
 6) Doble clic en Nexus-Portable.exe. Se abre una ventana llamada "Nexus".
    No hay que configurar ninguna URL: la interfaz se carga sola desde Render.
 
+Cuando haya cambios nuevos, adentro de Nexus aparece un cartel que dice
+"Nueva versión de Nexus para la PC". Tocá "Actualizar": la interfaz se
+recarga desde Render. No hay que descargar otro exe ni volver a pasar el ZIP.
+Si el cartel no aparece, cerrá y abrí Nexus: también se revisa al abrir.
+
 Si sigue sin abrirse, copiame el mensaje exacto que muestra Windows.

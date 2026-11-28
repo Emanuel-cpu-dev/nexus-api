@@ -10,10 +10,17 @@ function VideoTile({ stream, name, user, muted = false, remote = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    if (!element) return undefined;
     if (element.srcObject !== (stream || null)) element.srcObject = stream || null;
+    const retry = () => { if (stream && element.paused) element.play().catch(() => {}); };
     // El autoplay con audio puede estar bloqueado hasta que el usuario interactúa.
-    if (stream && element.paused) element.play().catch(() => {});
+    retry();
+    element.addEventListener('loadeddata', retry);
+    element.addEventListener('canplay', retry);
+    return () => {
+      element.removeEventListener('loadeddata', retry);
+      element.removeEventListener('canplay', retry);
+    };
   }, [stream]);
   const hasVideo = Boolean(stream?.getVideoTracks().length);
   return (
@@ -79,6 +86,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
+      cameraRef.current = stream.getVideoTracks()[0] || null;
       setLocalStream(stream);
       const rtc = new RtcManager({
         socket: getSocket(),
@@ -185,19 +193,44 @@ export default function CallOverlay({ call, me, friends, onClose }) {
     setMuted(next);
   }
 
-  function toggleCamera() {
-    const next = !cameraOff;
-    localStream?.getVideoTracks().forEach((track) => { track.enabled = !next; });
-    setCameraOff(next);
+  async function enableCamera() {
+    screenRef.current?.getTracks().forEach((track) => track.stop());
+    screenRef.current = null;
+    let camera = cameraRef.current?.readyState === 'live' ? cameraRef.current : null;
+    if (!camera) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      camera = stream.getVideoTracks()[0];
+      cameraRef.current = camera;
+    }
+    camera.enabled = true;
+    const audio = localStream?.getAudioTracks() || [];
+    const next = new MediaStream([...audio, camera]);
+    await rtcRef.current?.replaceVideoTrack(camera, next);
+    setLocalStream(next);
+    setCameraOff(false);
+    setSharing(false);
+    setError('');
   }
 
-  function restoreCamera() {
-    const audio = localStream?.getAudioTracks() || [];
-    const camera = cameraRef.current?.readyState === 'live' ? cameraRef.current : null;
-    const next = new MediaStream([...audio, ...(camera ? [camera] : [])]);
-    rtcRef.current?.replaceVideoTrack(camera, next);
-    setLocalStream(next);
-    setSharing(false);
+  async function toggleCamera() {
+    if (!cameraOff) {
+      localStream?.getVideoTracks().forEach((track) => { track.enabled = false; });
+      setCameraOff(true);
+      return;
+    }
+    try {
+      await enableCamera();
+    } catch (err) {
+      setError(`No se pudo volver a abrir la cámara: ${err.message}`);
+    }
+  }
+
+  async function restoreCamera() {
+    try {
+      await enableCamera();
+    } catch (err) {
+      setError(`No se pudo restaurar la cámara: ${err.message}`);
+    }
   }
 
   function stopScreenShare() {
@@ -239,7 +272,7 @@ export default function CallOverlay({ call, me, friends, onClose }) {
       cameraRef.current = localStream?.getVideoTracks()[0] || cameraRef.current || null;
       screenRef.current = stream;
       const next = new MediaStream([...(localStream?.getAudioTracks() || []), track]);
-      rtcRef.current?.replaceVideoTrack(track, next);
+      await rtcRef.current?.replaceVideoTrack(track, next);
       setLocalStream(next);
       setSharing(true);
       track.onended = () => {

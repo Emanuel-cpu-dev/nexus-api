@@ -228,6 +228,10 @@ export default function Chat({ chat, me, compact = false, onCall, onCine, onBack
           type="text"
           value={text}
           onChange={(e) => { setText(e.target.value); notifyTyping(); }}
+          onFocus={(event) => {
+            // Cuando aparece el teclado, el viewport se achica después del foco.
+            setTimeout(() => event.target.scrollIntoView({ block: 'end', behavior: 'smooth' }), 250);
+          }}
           onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
           placeholder={canChat ? 'Escribe un mensaje…' : 'Selecciona un chat'}
           disabled={!canChat}

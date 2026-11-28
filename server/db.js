@@ -78,6 +78,7 @@ db.exec(`
     community_id TEXT REFERENCES communities(id) ON DELETE CASCADE,
     text TEXT DEFAULT '',
     file_id TEXT REFERENCES files(id) ON DELETE SET NULL,
+    repost_of TEXT REFERENCES posts(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS likes (
@@ -129,6 +130,12 @@ const fileColumns = db.prepare('PRAGMA table_info(files)').all().map((column) =>
 if (!fileColumns.includes('data')) {
   db.exec('ALTER TABLE files ADD COLUMN data BLOB');
 }
+// Reposts: una publicación puede ser una reiteración de otra, sin duplicar su contenido.
+const postColumns = db.prepare('PRAGMA table_info(posts)').all().map((column) => column.name);
+if (!postColumns.includes('repost_of')) {
+  db.exec('ALTER TABLE posts ADD COLUMN repost_of TEXT REFERENCES posts(id) ON DELETE CASCADE');
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_repost_user ON posts(user_id, repost_of) WHERE repost_of IS NOT NULL');
 
 // node:sqlite puede devolver un BLOB como objeto tipo-array; lo normalizamos a Buffer.
 export function blobBuffer(value) {
@@ -236,9 +243,19 @@ export function generateCode() {
 
 const OWNER_USERNAME = (process.env.OWNER_USERNAME || 'emaggi22').toLowerCase();
 
-export function publicUser(row) {
+// Estado de amistad respecto del usuario que está mirando. Se usa para que el
+// feed pueda ofrecer "agregar" o "aceptar" sin obligar a entrar al perfil.
+export function friendshipState(viewerId, otherId) {
+  if (!viewerId || !otherId || viewerId === otherId) return 'self';
+  if (areFriends(viewerId, otherId)) return 'friend';
+  if (db.prepare('SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ?').get(otherId, viewerId)) return 'incoming';
+  if (db.prepare('SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ?').get(viewerId, otherId)) return 'outgoing';
+  return 'none';
+}
+
+export function publicUser(row, viewerId = null) {
   if (!row) return null;
-  return {
+  const result = {
     id: row.id,
     username: row.username,
     isOwner: String(row.username || '').toLowerCase() === OWNER_USERNAME,
@@ -250,6 +267,8 @@ export function publicUser(row) {
     isPrivate: Boolean(row.profile_private),
     createdAt: row.created_at
   };
+  if (viewerId) result.friendState = friendshipState(viewerId, row.id);
+  return result;
 }
 
 export function getUserById(id) {
@@ -485,19 +504,34 @@ export function commentsFor(postId) {
   return db.prepare('SELECT * FROM comments WHERE post_id = ? ORDER BY created_at ASC').all(postId).map(commentShape);
 }
 
-export function postShape(row, viewerId) {
+export function postShape(row, viewerId, includeRepost = true) {
   if (!row) return null;
   const likes = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(row.id).c;
   const liked = viewerId
     ? Boolean(db.prepare('SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?').get(row.id, viewerId))
     : false;
+  const reposts = db.prepare('SELECT COUNT(*) AS c FROM posts WHERE repost_of = ?').get(row.id).c;
+  const reposted = viewerId
+    ? Boolean(db.prepare('SELECT 1 FROM posts WHERE repost_of = ? AND user_id = ?').get(row.id, viewerId))
+    : false;
   const community = row.community_id
     ? db.prepare('SELECT id, name FROM communities WHERE id = ?').get(row.community_id)
     : null;
+  let repostOf = null;
+  if (row.repost_of) {
+    if (!includeRepost) {
+      repostOf = { id: row.repost_of, unavailable: true };
+    } else {
+      const original = db.prepare('SELECT * FROM posts WHERE id = ?').get(row.repost_of);
+      repostOf = original && canSeePosts(original.user_id, viewerId)
+        ? postShape(original, viewerId, false)
+        : { id: row.repost_of, unavailable: true };
+    }
+  }
   return {
     id: row.id,
     userId: row.user_id,
-    author: publicUser(getUserById(row.user_id)),
+    author: publicUser(getUserById(row.user_id), viewerId),
     communityId: row.community_id || null,
     community: community ? { id: community.id, name: community.name } : null,
     text: row.text || '',
@@ -505,9 +539,33 @@ export function postShape(row, viewerId) {
     file: row.file_id ? fileShape(getFileById(row.file_id)) : null,
     likes,
     liked,
+    reposts,
+    reposted,
+    repostOf,
     comments: commentsFor(row.id),
     createdAt: row.created_at
   };
+}
+
+// Quiénes pusieron "me gusta" en publicaciones del usuario, para la pantalla
+// de notificaciones sociales. No incluye mensajes ni datos de ubicación.
+export function likeNotificationsFor(userId, limit = 120) {
+  const rows = db.prepare(`
+    SELECT l.post_id AS postId, l.created_at AS createdAt, p.text AS postText, u.*
+    FROM likes l
+    JOIN posts p ON p.id = l.post_id
+    JOIN users u ON u.id = l.user_id
+    WHERE p.user_id = ? AND l.user_id != ?
+    ORDER BY l.created_at DESC
+    LIMIT ?
+  `).all(userId, userId, limit);
+  return rows.map((row) => ({
+    id: `${row.postId}:${row.id}`,
+    postId: row.postId,
+    postText: row.postText || '',
+    user: publicUser(row, userId),
+    createdAt: row.createdAt
+  }));
 }
 
 // Los perfiles privados solo muestran sus publicaciones a sus amigos (y a su dueño).

@@ -19,8 +19,11 @@ import Cine from './components/Cine.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
 import Location from './components/Location.jsx';
+import Likes from './components/Likes.jsx';
 import UpdateBanner from './components/UpdateBanner.jsx';
+import UiUpdateBanner from './components/UiUpdateBanner.jsx';
 import { checkForUpdate, getNativeVersion, installUpdate } from './updater.js';
+import { checkUiUpdate, applyUiUpdate } from './uiUpdate.js';
 import { playSound, unlockSound } from './sound.js';
 import {
   getMyStatus, setMyStatus, getSoundEnabled, setSoundEnabled, isQuietStatus
@@ -85,6 +88,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [update, setUpdate] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [uiUpdate, setUiUpdate] = useState(null);
   const contentRef = useRef(null);
   const pullRef = useRef(0);
   const refreshingRef = useRef(false);
@@ -141,6 +145,51 @@ export default function App() {
       try { playSound(soundKind); } catch { /* el audio es opcional */ }
     }
   }, [toast, myStatus, soundOn]);
+
+  // El teclado del celular reduce el viewport. Reservamos esa altura para que
+  // el campo donde se escribe quede siempre visible, arriba del teclado.
+  useEffect(() => {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    let baseline = viewport?.height || window.innerHeight;
+
+    function update() {
+      const visible = viewport?.height || window.innerHeight;
+      if (visible > baseline) baseline = visible;
+      const keyboard = Math.max(0, baseline - visible);
+      root.style.setProperty('--kb', keyboard > 60 ? `${Math.round(keyboard)}px` : '0px');
+      document.body.classList.toggle('keyboard-open', keyboard > 60);
+    }
+
+    update();
+    viewport?.addEventListener('resize', update);
+    viewport?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    return () => {
+      viewport?.removeEventListener('resize', update);
+      viewport?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      root.style.setProperty('--kb', '0px');
+      document.body.classList.remove('keyboard-open');
+    };
+  }, []);
+
+  // La PC abre la UI desde Render: avisamos si hay versión nueva y recargamos.
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const found = await checkUiUpdate();
+      if (!cancelled && found) setUiUpdate(found);
+    };
+    check();
+    const timer = setInterval(check, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, []);
 
   const applyFoundUpdate = useCallback((found) => {
     if (!found) return;
@@ -297,7 +346,7 @@ export default function App() {
   }, [toast, logout]);
 
   // "Tirar para abajo para actualizar" en el celular (como Instagram).
-  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'location', 'profile', 'userProfile', 'settings', 'cine'].includes(view);
+  const pullEnabled = ['home', 'friends', 'messages', 'communities', 'location', 'profile', 'likes', 'userProfile', 'settings', 'cine'].includes(view);
 
   useEffect(() => {
     const node = contentRef.current;
@@ -474,6 +523,16 @@ export default function App() {
         }, 'message');
       }
     }
+    function onLikeNew(payload) {
+      if (!payload?.user?.id || payload.user.id === me.id) return;
+      const name = payload.user.displayName || 'Un amigo';
+      notify({
+        icon: '❤️',
+        title: `${name} te puso MG`,
+        body: payload.postText ? `“${payload.postText.slice(0, 80)}”` : 'En una de tus publicaciones',
+        onClick: () => pushScreen({ view: 'likes' })
+      });
+    }
     function onCallInvite(payload) {
       notify({
         icon: '📹',
@@ -536,6 +595,7 @@ export default function App() {
     socket.on('friend:request', onFriendRequest);
     socket.on('friend:accepted', onFriendAccepted);
     socket.on('dm:message', onDmMessage);
+    socket.on('like:new', onLikeNew);
     socket.on('call:invite', onCallInvite);
     socket.on('call:accepted', onCallAccepted);
     socket.on('call:rejected', onCallRejected);
@@ -550,6 +610,7 @@ export default function App() {
       socket.off('friend:request', onFriendRequest);
       socket.off('friend:accepted', onFriendAccepted);
       socket.off('dm:message', onDmMessage);
+      socket.off('like:new', onLikeNew);
       socket.off('call:invite', onCallInvite);
       socket.off('call:accepted', onCallAccepted);
       socket.off('call:rejected', onCallRejected);
@@ -559,7 +620,7 @@ export default function App() {
       socket.off('location:shares', onLocationShares);
       socket.off('location:update', onLocationUpdate);
     };
-  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate]);
+  }, [me?.id, activeChat?.id, load, notify, toast, friends, applyFoundUpdate, pushScreen]);
 
   const changeView = useCallback((next) => {
     const generalCine = { type: 'general', id: 'general', name: 'Sala general' };
@@ -683,6 +744,8 @@ export default function App() {
       toast(error.message);
     }
   }, [toast, view, profileReturnView, pushScreen]);
+
+  const openLikes = useCallback(() => pushScreen({ view: 'likes' }), [pushScreen]);
 
   const openCineForFriend = useCallback(async (friend) => {
     if (!friend?.id) return;
@@ -853,12 +916,15 @@ export default function App() {
   ), [cineTarget]);
 
   const updateBanner = (
-    <UpdateBanner
-      update={update}
-      busy={updating}
-      onInstall={applyUpdate}
-      onDismiss={dismissUpdate}
-    />
+    <>
+      <UpdateBanner
+        update={update}
+        busy={updating}
+        onInstall={applyUpdate}
+        onDismiss={dismissUpdate}
+      />
+      <UiUpdateBanner update={uiUpdate} onInstall={() => applyUiUpdate(uiUpdate)} />
+    </>
   );
 
   if (!token) {
@@ -921,7 +987,7 @@ export default function App() {
               </div>
               <button type="button" className="primary" onClick={() => changeView('friends')}>👥 Mis amigos</button>
             </div>
-            <Feed posts={posts} onProfile={openProfile} />
+            <Feed posts={posts} onProfile={openProfile} me={me} onFriendsChanged={load} />
           </div>
         )}
 
@@ -992,7 +1058,7 @@ export default function App() {
             <button type="button" className="ghost" onClick={handleBack}>← Todas las comunidades</button>
             <h2>🌐 {communityOpen.name}</h2>
             <div className="community-detail-grid">
-              <Feed communityId={communityOpen.id} compact onProfile={openProfile} />
+              <Feed communityId={communityOpen.id} compact onProfile={openProfile} me={me} onFriendsChanged={load} />
               <Chat
                 chat={resolvedChat}
                 me={me}
@@ -1023,11 +1089,16 @@ export default function App() {
         {view === 'profile' && (
           <Profile
             me={me}
+            onLikes={openLikes}
             onUpdated={(user) => {
               setMe(user);
               setFriends((current) => current.map((friend) => (friend.id === user.id ? { ...friend, ...user } : friend)));
             }}
           />
+        )}
+
+        {view === 'likes' && (
+          <Likes onBack={handleBack} onProfile={openProfile} />
         )}
 
         {view === 'userProfile' && profileUser && (

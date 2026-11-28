@@ -13,6 +13,8 @@ export class RtcManager {
     this.reoffer = new Set();
     this.offerTimers = new Map();
     this.offerRetries = new Map();
+    this.connectionRetries = new Map();
+    this.recoverTimers = new Map();
     this.destroyed = false;
 
     const iceServers = [
@@ -46,6 +48,9 @@ export class RtcManager {
         clearTimeout(this.offerTimers.get(id));
         this.offerTimers.delete(id);
         this.offerRetries.delete(id);
+        clearTimeout(this.recoverTimers.get(id));
+        this.recoverTimers.delete(id);
+        this.connectionRetries.delete(id);
       }
     }
 
@@ -104,9 +109,52 @@ export class RtcManager {
     pc.ontrack = (event) => {
       const stream = event.streams?.[0] || new MediaStream([event.track]);
       this.onTrack(id, stream);
+      // Si la cámara se apagó y volvió, el navegador puede dejar el último frame
+      // congelado hasta que la pista vuelve a emitir.
+      event.track.onunmute = () => this.onTrack(id, stream);
+    };
+
+    // NAT/4G: la señalización puede seguir viva aunque el media muera. Reactivamos
+    // ICE en vez de dejar la cámara del otro congelada para siempre.
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState;
+      if (state === 'connected') {
+        this.connectionRetries.set(id, 0);
+        return;
+      }
+      if (state === 'failed' || state === 'disconnected') this._recoverPeer(id, pc);
+    };
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
+      if (state === 'failed' || state === 'disconnected') this._recoverPeer(id, pc);
     };
 
     return pc;
+  }
+
+  _recoverPeer(id, pc) {
+    if (this.destroyed || this.peers.get(id) !== pc) return;
+    // Un solo lado renegocia: si los dos lanzan ofertas al mismo tiempo se
+    // produce glare y la cámara puede quedar detenida igual que antes.
+    if (String(this.myId) >= String(id)) return;
+    clearTimeout(this.recoverTimers.get(id));
+    this.recoverTimers.set(id, setTimeout(async () => {
+      if (this.destroyed || this.peers.get(id) !== pc) return;
+      const state = pc.connectionState || pc.iceConnectionState;
+      if (state === 'connected' || state === 'completed' || state === 'stable') return;
+      const attempt = (this.connectionRetries.get(id) || 0) + 1;
+      if (attempt > 4) return;
+      this.connectionRetries.set(id, attempt);
+      try {
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription({ type: 'rollback' });
+        }
+        if (typeof pc.restartIce === 'function') pc.restartIce();
+        await this._offer(id, true);
+      } catch (error) {
+        this.onError(error);
+      }
+    }, 1500));
   }
 
   async _offer(id, iceRestart = false) {
@@ -224,20 +272,22 @@ export class RtcManager {
     }
   }
 
-  replaceVideoTrack(track, stream) {
+  async replaceVideoTrack(track, stream) {
     if (stream) this.localStream = stream;
+    const operations = [];
     for (const [id, pc] of this.peers) {
       const senders = pc.getSenders();
       const sender = this.videoSenders.get(id);
       if (sender && senders.includes(sender)) {
-        sender.replaceTrack(track || null);
+        operations.push(sender.replaceTrack(track || null));
       } else if (track) {
         // No había cámara: compartir pantalla debe crear el sender y negociarlo.
         const added = pc.addTrack(track, this.localStream || new MediaStream([track]));
         this.videoSenders.set(id, added);
-        this._offer(id);
+        operations.push(this._offer(id));
       }
     }
+    await Promise.allSettled(operations);
   }
 
   destroy() {
@@ -252,5 +302,8 @@ export class RtcManager {
     for (const timer of this.offerTimers.values()) clearTimeout(timer);
     this.offerTimers.clear();
     this.offerRetries.clear();
+    for (const timer of this.recoverTimers.values()) clearTimeout(timer);
+    this.recoverTimers.clear();
+    this.connectionRetries.clear();
   }
 }

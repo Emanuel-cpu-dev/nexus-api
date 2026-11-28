@@ -16,6 +16,7 @@ const uploadDir = resolve(process.env.UPLOAD_DIR || './uploads');
 const uiDir = resolve(process.env.UI_DIR || './app/dist');
 const dataDir = resolve(process.env.DATA_DIR || './data');
 const releaseFile = resolve(process.env.RELEASE_FILE || './mobile-release.json');
+const uiReleaseFile = resolve(process.env.UI_RELEASE_FILE || './ui-release.json');
 mkdirSync(uploadDir, { recursive: true });
 migrateUploadsFromDisk(uploadDir);
 
@@ -76,6 +77,26 @@ function readRelease() {
 }
 
 app.get('/api/app-version', (req, res) => res.json(readRelease()));
+
+// Versión de la interfaz web. Electron abre esta misma UI desde Render, así que
+// las mejoras llegan a la PC sin reenviar el .exe; la app avisa y recarga.
+function readUiRelease() {
+  const fallback = { uiCode: 0, uiVersion: '', notes: '' };
+  if (!existsSync(uiReleaseFile)) return fallback;
+  try {
+    const release = JSON.parse(readFileSync(uiReleaseFile, 'utf8'));
+    return {
+      ...fallback,
+      uiCode: Number(release.uiCode) || 0,
+      uiVersion: String(release.uiVersion || ''),
+      notes: String(release.notes || '')
+    };
+  } catch (error) {
+    return { ...fallback, error: error.message };
+  }
+}
+
+app.get('/api/ui-version', (req, res) => res.json(readUiRelease()));
 
 // Copia consistente de SQLite para guardarla fuera de Render (rama "data").
 app.get('/api/backup', (req, res) => {

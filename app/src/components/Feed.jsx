@@ -19,7 +19,7 @@ function Attachment({ file }) {
   );
 }
 
-export default function Feed({ communityId = null, compact = false, onProfile }) {
+export default function Feed({ communityId = null, compact = false, onProfile, me, onFriendsChanged }) {
   const [posts, setPosts] = useState([]);
   const [text, setText] = useState('');
   const [progress, setProgress] = useState(null);
@@ -113,6 +113,70 @@ export default function Feed({ communityId = null, compact = false, onProfile })
     }
   }
 
+  // Desde el Inicio se puede agregar a quien publicó, sin entrar a su perfil.
+  async function requestFriend(author) {
+    if (!author?.code) return;
+    setError('');
+    try {
+      const data = await api('/friends/request', { method: 'POST', body: { code: author.code } });
+      const nextState = data.accepted ? 'friend' : 'outgoing';
+      setPosts((current) => current.map((post) => (
+        post.author?.id === author.id ? { ...post, author: { ...post.author, friendState: nextState } } : post
+      )));
+      onFriendsChanged?.();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function acceptFriend(author) {
+    setError('');
+    try {
+      await api(`/friends/${author.id}/accept`, { method: 'POST' });
+      setPosts((current) => current.map((post) => (
+        post.author?.id === author.id ? { ...post, author: { ...post.author, friendState: 'friend' } } : post
+      )));
+      onFriendsChanged?.();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function toggleRepost(post) {
+    setError('');
+    try {
+      const data = await api(`/posts/${post.id}/repost`, { method: 'POST' });
+      setPosts((current) => {
+        let next = current.map((item) => (
+          item.id === post.id
+            ? { ...item, reposts: data.reposts, reposted: data.reposted }
+            : item
+        ));
+        if (data.reposted && data.post) {
+          next = [data.post, ...next.filter((item) => item.id !== data.post.id)];
+        } else {
+          next = next.filter((item) => !(item.repostOf?.id === post.id && item.userId === me?.id));
+        }
+        return next;
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function friendAction(author) {
+    if (!author?.id || author.id === me?.id) return null;
+    const state = author.friendState || 'none';
+    if (state === 'friend') return null;
+    if (state === 'incoming') {
+      return <button type="button" className="ghost small" onClick={() => acceptFriend(author)}>✅ Aceptar amistad</button>;
+    }
+    if (state === 'outgoing') {
+      return <button type="button" className="ghost small" disabled>Solicitud enviada</button>;
+    }
+    return <button type="button" className="ghost small" onClick={() => requestFriend(author)}>➕ Agregar</button>;
+  }
+
   return (
     <div className={cx('feed', compact && 'compact')}>
       {!compact && <h2>{communityId ? 'Publicaciones de la comunidad' : 'Inicio'}</h2>}
@@ -152,8 +216,34 @@ export default function Feed({ communityId = null, compact = false, onProfile })
                 </div>
               </button>
             </header>
+            {post.repostOf && <div className="repost-badge">🔁 {post.userId === me?.id ? 'Reposteaste' : `${post.author?.displayName || 'Alguien'} reposteó`}</div>}
             {post.text && <p className="post-text">{post.text}</p>}
             <Attachment file={post.file} />
+            {post.repostOf && (
+              <div className="repost-quote">
+                {post.repostOf.unavailable ? (
+                  <span className="repost-unavailable">Esta publicación ya no está disponible.</span>
+                ) : (
+                  <>
+                    <div className="post-head">
+                      <button
+                        type="button"
+                        className="post-author"
+                        onClick={() => onProfile?.(post.repostOf.author)}
+                      >
+                        <Avatar user={post.repostOf.author} size="xs" />
+                        <div className="grow">
+                          <strong className="tiny">{post.repostOf.author?.displayName}</strong>
+                          <div className="tiny muted">@{post.repostOf.author?.username} · {timeAgo(post.repostOf.createdAt)}</div>
+                        </div>
+                      </button>
+                    </div>
+                    {post.repostOf.text && <p className="post-text">{post.repostOf.text}</p>}
+                    <Attachment file={post.repostOf.file} />
+                  </>
+                )}
+              </div>
+            )}
             <div className="post-actions">
               <button
                 type="button"
@@ -169,6 +259,15 @@ export default function Feed({ communityId = null, compact = false, onProfile })
               >
                 💬 {post.comments?.length || 0}
               </button>
+              <button
+                type="button"
+                className={cx('ghost', post.reposted && 'liked')}
+                onClick={() => toggleRepost(post)}
+                title={post.reposted ? 'Deshacer repost' : 'Repostar'}
+              >
+                🔁 {post.reposts || 0}
+              </button>
+              {friendAction(post.author)}
             </div>
             {openComments === post.id && (
               <div className="comments">

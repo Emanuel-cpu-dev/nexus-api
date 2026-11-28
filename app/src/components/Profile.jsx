@@ -4,7 +4,7 @@ import Avatar from './Avatar.jsx';
 
 const COLORS = ['#5865f2', '#eb459e', '#57f287', '#fee75c', '#ed4245', '#00a8fc'];
 
-export default function Profile({ me, onUpdated }) {
+export default function Profile({ me, onUpdated, onLikes }) {
   const [displayName, setDisplayName] = useState(me?.displayName || '');
   const [bio, setBio] = useState(me?.bio || '');
   const [avatarColor, setAvatarColor] = useState(me?.avatarColor || COLORS[0]);
@@ -84,6 +84,7 @@ export default function Profile({ me, onUpdated }) {
             <input id="avatar-file" type="file" accept="image/*" hidden onChange={pickPhoto} />
           </div>
           <span className="muted">@{me.username}</span>
+          <button type="button" className="ghost small" onClick={onLikes}>❤️ Ver quién te puso MG</button>
           <div className="code-box">
             <span className="tiny muted block">TU CÓDIGO</span>
             <strong className="code-value">{me.code}</strong>
