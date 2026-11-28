@@ -111,6 +111,7 @@ db.exec(`
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    caption TEXT DEFAULT '',
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL
   );
@@ -123,6 +124,20 @@ db.exec(`
     PRIMARY KEY (story_id, user_id)
   );
   CREATE INDEX IF NOT EXISTS idx_story_views_user ON story_views(user_id, viewed_at);
+  -- Reacciones a la historia del zodiaco. No guarda ubicación ni fotos efímeras.
+  CREATE TABLE IF NOT EXISTS horoscope_reactions (
+    id TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    sign TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    message TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_horoscope_like
+    ON horoscope_reactions(date, sign, user_id, kind) WHERE kind = 'like';
+  CREATE INDEX IF NOT EXISTS idx_horoscope_reactions_day
+    ON horoscope_reactions(date, sign, created_at);
   CREATE TABLE IF NOT EXISTS watch_rooms (
     key TEXT PRIMARY KEY,
     url TEXT DEFAULT '',
@@ -172,6 +187,10 @@ if (!postColumns.includes('repost_of')) {
 }
 if (!postColumns.includes('updated_at')) {
   db.exec('ALTER TABLE posts ADD COLUMN updated_at TEXT');
+}
+const storyColumns = db.prepare('PRAGMA table_info(stories)').all().map((column) => column.name);
+if (!storyColumns.includes('caption')) {
+  db.exec("ALTER TABLE stories ADD COLUMN caption TEXT DEFAULT ''");
 }
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_repost_user ON posts(user_id, repost_of) WHERE repost_of IS NOT NULL');
 
@@ -672,13 +691,15 @@ export function purgeExpiredStories() {
   return db.prepare('DELETE FROM stories WHERE expires_at <= ?').run(stamp).changes;
 }
 
-export function saveStory(userId, fileId) {
+export function saveStory(userId, fileId, caption = '') {
   const id = uid();
   const createdAt = now();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const text = String(caption || '').trim().slice(0, 280);
   db.prepare(`
-    INSERT INTO stories (id, user_id, file_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)
-  `).run(id, userId, fileId, createdAt, expiresAt);
+    INSERT INTO stories (id, user_id, file_id, caption, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, userId, fileId, text, createdAt, expiresAt);
   return storyShape(db.prepare('SELECT * FROM stories WHERE id = ?').get(id), userId);
 }
 
@@ -692,6 +713,7 @@ export function storyShape(row, viewerId = null) {
     id: row.id,
     user: publicUser(getUserById(row.user_id), viewerId),
     file: file ? fileShape(file) : null,
+    caption: row.caption || '',
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     viewed: views.some((view) => view.user_id === viewerId),
@@ -762,6 +784,50 @@ export function storyViewersFor(storyId, ownerId) {
     user: publicUser(getUserById(view.user_id), ownerId),
     viewedAt: view.viewed_at
   }));
+}
+
+export function saveHoroscopeReaction(userId, date, sign, kind, message = '') {
+  const day = String(date || '').slice(0, 10);
+  const slug = String(sign || '').toLowerCase();
+  const type = kind === 'message' ? 'message' : 'like';
+  if (type === 'like') {
+    const existing = db.prepare(`
+      SELECT id FROM horoscope_reactions
+      WHERE date = ? AND sign = ? AND user_id = ? AND kind = 'like'
+    `).get(day, slug, userId);
+    if (existing) {
+      db.prepare('DELETE FROM horoscope_reactions WHERE id = ?').run(existing.id);
+      return horoscopeReactions(day, slug, userId);
+    }
+  }
+  const text = String(message || '').trim().slice(0, 280);
+  db.prepare(`
+    INSERT INTO horoscope_reactions (id, date, sign, user_id, kind, message, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(uid(), day, slug, userId, type, text, now());
+  return horoscopeReactions(day, slug, userId);
+}
+
+export function horoscopeReactions(date, sign, viewerId) {
+  const day = String(date || '').slice(0, 10);
+  const slug = String(sign || '').toLowerCase();
+  const rows = db.prepare(`
+    SELECT * FROM horoscope_reactions
+    WHERE date = ? AND sign = ? ORDER BY created_at ASC
+  `).all(day, slug);
+  const likes = rows.filter((row) => row.kind === 'like').length;
+  return {
+    date: day,
+    sign: slug,
+    likes,
+    liked: viewerId ? rows.some((row) => row.kind === 'like' && row.user_id === viewerId) : false,
+    messages: rows.filter((row) => row.kind === 'message').map((row) => ({
+      id: row.id,
+      user: publicUser(getUserById(row.user_id), viewerId),
+      text: row.message,
+      createdAt: row.created_at
+    }))
+  };
 }
 
 export function postShape(row, viewerId, includeRepost = true) {

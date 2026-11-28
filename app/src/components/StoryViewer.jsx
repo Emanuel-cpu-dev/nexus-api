@@ -150,6 +150,10 @@ export default function StoryViewer({ groups = [], me, initial, onClose, onChang
           </button>
         </div>
 
+        {current.story.caption && (
+          <div className="story-caption">{current.story.caption}</div>
+        )}
+
         <footer className="story-footer">
           <span className="tiny muted">
             {mine ? `👁️ ${current.story.viewCount || 0} vistas` : 'Se borra en 24 horas'}

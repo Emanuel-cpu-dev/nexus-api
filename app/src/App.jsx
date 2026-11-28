@@ -18,6 +18,7 @@ import CallOverlay from './components/CallOverlay.jsx';
 import Cine from './components/Cine.jsx';
 import StoryBar from './components/StoryBar.jsx';
 import StoryViewer from './components/StoryViewer.jsx';
+import ZodiacStoryViewer from './components/ZodiacStoryViewer.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
 import Location from './components/Location.jsx';
@@ -88,7 +89,9 @@ export default function App() {
   const [stories, setStories] = useState([]);
   const [storyCount, setStoryCount] = useState(0);
   const [storyOpen, setStoryOpen] = useState(null);
+  const [zodiacOpen, setZodiacOpen] = useState(false);
   const [horoscope, setHoroscope] = useState(null);
+  const lastHoroscopeDate = useRef(null);
   const [focusPostId, setFocusPostId] = useState(null);
   const [call, setCall] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -401,6 +404,7 @@ export default function App() {
     setStories([]);
     setStoryCount(0);
     setStoryOpen(null);
+    setZodiacOpen(false);
     setHoroscope(null);
     setCall(null);
     setView('home');
@@ -441,16 +445,37 @@ export default function App() {
     }
   }, []);
 
+  const refreshHoroscope = useCallback(async () => {
+    try {
+      const data = await api('/horoscope');
+      setHoroscope(data);
+      return data;
+    } catch (error) {
+      toast(error.message);
+      return null;
+    }
+  }, [toast]);
+
   // Si la app queda abierta de un día para otro, el horóscopo se renueva solo.
   useEffect(() => {
     if (!horoscope?.date) return undefined;
     const timer = setInterval(() => {
       const today = new Date().toISOString().slice(0, 10);
       if (horoscope.date === today) return;
-      api('/horoscope').then(setHoroscope).catch(() => {});
+      refreshHoroscope();
     }, 5 * 60 * 1000);
     return () => clearInterval(timer);
-  }, [horoscope?.date]);
+  }, [horoscope?.date, refreshHoroscope]);
+
+  // Aviso suave cuando cambia el día: es el gancho para volver a entrar.
+  useEffect(() => {
+    const date = horoscope?.date;
+    if (!date) return;
+    if (lastHoroscopeDate.current && lastHoroscopeDate.current !== date) {
+      toast('✨ Tu horóscopo de hoy ya está listo');
+    }
+    lastHoroscopeDate.current = date;
+  }, [horoscope?.date, toast]);
 
   // Marcamos la lectura en el servidor para que el badge no vuelva a aparecer
   // después de recargar. Es el mismo comportamiento que Instagram.
@@ -1186,6 +1211,7 @@ export default function App() {
               groups={stories}
               me={me}
               horoscope={horoscope}
+              onHoroscope={() => setZodiacOpen(true)}
               onOpen={(userId, storyId) => setStoryOpen({ userId, storyId })}
               onChange={refreshStories}
               onError={(message) => toast(message)}
@@ -1355,6 +1381,17 @@ export default function App() {
           onClose={() => setStoryOpen(null)}
           onChange={refreshStories}
           onProfile={openProfile}
+        />
+      )}
+
+      {zodiacOpen && horoscope && (
+        <ZodiacStoryViewer
+          data={horoscope}
+          me={me}
+          onClose={() => setZodiacOpen(false)}
+          onRetry={refreshHoroscope}
+          onStoryChanged={refreshStories}
+          onToast={toast}
         />
       )}
 

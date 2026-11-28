@@ -1,7 +1,7 @@
 {
-  "versionCode": 19,
-  "versionName": "1.18",
+  "versionCode": 20,
+  "versionName": "1.19",
   "force": true,
-  "notes": "OBLIGATORIA: editá y borrá tus publicaciones, historias como Instagram con horóscopo diario fijo, menciones sin borde, videos mudos con sonido al tocarlos y compartir pantalla desde la PC con audio. Se descarga sola y se instala con un toque.",
+  "notes": "OBLIGATORIA: el horóscopo es una historia de 12 signos con fotos y texto real que se renuevan cada día. Se cierra con X, Escape o al terminar; podés darle me gusta, dejar un mensaje y pasar tu signo a tu historia con un mg. Las historias propias muestran el texto que les pusiste.",
   "apkUrl": "/Nexus.apk"
 }

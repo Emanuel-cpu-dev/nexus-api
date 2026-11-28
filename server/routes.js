@@ -40,6 +40,8 @@ import {
   viewableStory,
   markStoryViewed,
   storyViewersFor,
+  saveHoroscopeReaction,
+  horoscopeReactions,
   saveFileData,
   blobBuffer,
   commentsFor,
@@ -54,7 +56,7 @@ import {
   latestLocationFor,
   latestLocationsFor
 } from './db.js';
-import { horoscopeFor } from './horoscope.js';
+import { getHoroscope, HOROSCOPE_SIGNS } from './horoscope.js';
 
 export function createRoutes(io) {
   const router = Router();
@@ -146,7 +148,7 @@ export function createRoutes(io) {
     return res.json({ token: createToken(user.id), user: publicUser(user) });
   });
 
-  router.get('/bootstrap', authRequired, (req, res) => {
+  router.get('/bootstrap', authRequired, async (req, res) => {
     const id = req.user.id;
     const noticeCounts = unreadSocialCounts(id);
     const storyFeed = storiesFor(id);
@@ -180,7 +182,7 @@ export function createRoutes(io) {
       mentionCount: noticeCounts.mentions,
       stories: storyFeed.groups,
       storyCount: storyFeed.storyCount,
-      horoscope: horoscopeFor(),
+      horoscope: await getHoroscope(),
       location: {
         sharedWith: locationViewersFor(id),
         sharedBy: locationOwnersFor(id),
@@ -381,8 +383,30 @@ export function createRoutes(io) {
     return res.json({ ok: true });
   });
 
-  // Historia fija: cambia sola cada día y es igual para todos. No se guarda en SQLite.
-  router.get('/horoscope', authRequired, (req, res) => res.json(horoscopeFor()));
+  // Historia fija: lectura REAL del día, cacheada en memoria y compartida por todos.
+  router.get('/horoscope', authRequired, async (req, res) => res.json(await getHoroscope()));
+
+  router.get('/horoscope/:sign/reactions', authRequired, (req, res) => {
+    const sign = String(req.params.sign || '').toLowerCase();
+    if (!HOROSCOPE_SIGNS.includes(sign)) return res.status(400).json({ error: 'Signo no válido.' });
+    const date = String(req.query.date || '').slice(0, 10) || null;
+    const targetDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toISOString().slice(0, 10);
+    return res.json(horoscopeReactions(targetDate, sign, req.user.id));
+  });
+
+  router.post('/horoscope/:sign/react', authRequired, (req, res) => {
+    const sign = String(req.params.sign || '').toLowerCase();
+    if (!HOROSCOPE_SIGNS.includes(sign)) return res.status(400).json({ error: 'Signo no válido.' });
+    const kind = req.body?.kind === 'message' ? 'message' : 'like';
+    const message = String(req.body?.message || '').trim().slice(0, 280);
+    if (kind === 'message' && !message) return res.status(400).json({ error: 'Escribí un mensaje.' });
+    const date = new Date().toISOString().slice(0, 10);
+    const data = saveHoroscopeReaction(req.user.id, date, sign, kind, message);
+    for (const friendId of friendIds(req.user.id)) {
+      io.to(`user:${friendId}`).emit('horoscope:reaction', { date, sign, ...data });
+    }
+    return res.json(data);
+  });
 
   // Historias: solo el autor y sus amigos pueden verlas; viven 24 horas.
   router.get('/stories', authRequired, (req, res) => {
@@ -399,7 +423,8 @@ export function createRoutes(io) {
     if (Number(file.size) > 25 * 1024 * 1024) {
       return res.status(400).json({ error: 'La historia no puede superar 25 MB.' });
     }
-    const story = saveStory(req.user.id, file.id);
+    const caption = String(req.body?.caption || '').trim().slice(0, 280);
+    const story = saveStory(req.user.id, file.id, caption);
     const row = db.prepare('SELECT * FROM stories WHERE id = ?').get(story.id);
     for (const friendId of friendIds(req.user.id)) {
       io.to(`user:${friendId}`).emit('story:new', {

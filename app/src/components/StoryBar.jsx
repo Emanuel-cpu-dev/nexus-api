@@ -1,14 +1,12 @@
 import { useRef, useState } from 'react';
 import { api, uploadFile } from '../api.js';
 import Avatar from './Avatar.jsx';
-import HoroscopeViewer from './HoroscopeViewer.jsx';
 
-export default function StoryBar({ groups = [], me, horoscope, onOpen, onChange, onError }) {
+export default function StoryBar({ groups = [], me, horoscope, onHoroscope, onOpen, onChange, onError }) {
   const galleryRef = useRef(null);
   const cameraRef = useRef(null);
   const [progress, setProgress] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [horoscopeOpen, setHoroscopeOpen] = useState(false);
   const own = groups.find((group) => group.user?.id === me?.id);
   const others = groups.filter((group) => group.user?.id !== me?.id);
 
@@ -40,10 +38,15 @@ export default function StoryBar({ groups = [], me, horoscope, onOpen, onChange,
     <div className="story-bar card">
       <div className="story-bar-list">
         {horoscope && (
-          <button type="button" className="story-item horoscope-item" onClick={() => setHoroscopeOpen(true)}>
+          <button
+            type="button"
+            className="story-item horoscope-item"
+            title={`Horóscopo del ${horoscope.title || 'día'}`}
+            onClick={() => onHoroscope?.()}
+          >
             <span className="story-ring horoscope-ring"><span className="story-symbol">✨</span></span>
             <span className="story-name">Horóscopo</span>
-            <span className="story-today">HOY</span>
+            <span className="story-today">HOY {String(horoscope.date || '').slice(8)}</span>
           </button>
         )}
         <div className="story-own-wrap">
@@ -93,9 +96,6 @@ export default function StoryBar({ groups = [], me, horoscope, onOpen, onChange,
         hidden
         onChange={attach}
       />
-      {horoscopeOpen && (
-        <HoroscopeViewer data={horoscope} onClose={() => setHoroscopeOpen(false)} />
-      )}
     </div>
   );
 }
