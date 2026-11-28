@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Heph Display';
+  src: url('/fonts/playfair-display-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+}
+
 :root {
   --bg: #0d0e14;
   --bg-2: #12141d;
@@ -127,6 +135,27 @@ p { margin: 6px 0 12px; }
   box-shadow: 0 8px 20px rgba(88, 101, 242, .35);
 }
 .brand-mark.small { width: 38px; height: 38px; border-radius: 11px; font-size: 19px; }
+
+/* Marca HEPH: misma wordmark centrada en PC, celular, login y carga. */
+.brand-wordmark {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  line-height: 1; text-align: center; white-space: nowrap;
+}
+.brand-wordmark-name {
+  font-family: 'Heph Display', Georgia, 'Times New Roman', serif;
+  font-weight: 700; font-size: 34px; letter-spacing: .14em;
+  padding-left: .14em; /* compensa el tracking para que quede centrado */
+  background: linear-gradient(120deg, #fff 10%, #cfd4ff 55%, #ffd76b 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 2px 18px rgba(124, 92, 255, .25);
+}
+.brand-wordmark-tag {
+  margin-top: 6px; font-size: 11px; font-weight: 600;
+  letter-spacing: .18em; padding-left: .18em; color: var(--muted);
+}
+.brand-wordmark.compact .brand-wordmark-name { font-size: 23px; }
+.brand-wordmark.compact .brand-wordmark-tag { margin-top: 4px; font-size: 9px; letter-spacing: .12em; padding-left: .12em; }
+.mobile-brand { display: none; }
 
 /* ---------- Login ---------- */
 .auth-screen {
@@ -768,6 +797,9 @@ p { margin: 6px 0 12px; }
     border-top: 1px solid var(--line);
   }
   .sidebar-head, .sidebar-section, .sidebar-foot { display: none; }
+  .mobile-brand { display: flex; justify-content: center; padding: 10px 12px 2px; }
+  .mobile-brand .brand-wordmark-name { font-size: 30px; }
+  .mobile-brand .brand-wordmark-tag { font-size: 10px; }
   .nav-list { flex-direction: row; width: 100%; gap: 2px; }
   .nav-item {
     flex: 1 1 0;

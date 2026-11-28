@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { getServerUrl, setServerUrl, isServerUrlAutomatic } from '../config.js';
+import BrandWordmark from './BrandWordmark.jsx';
 
 const USER_KEY = 'nexus_user';
 const PASS_KEY = 'nexus_pass';
@@ -88,8 +89,7 @@ export default function Auth({ onAuthenticated }) {
   return (
     <div className="auth-screen">
       <div className="auth-card">
-        <div className="brand-mark">H</div>
-        <h1>Heph</h1>
+        <BrandWordmark />
         <p className="muted">Tu espacio para hablar, llamar y ver videos juntos.</p>
 
         <div className="tabs">

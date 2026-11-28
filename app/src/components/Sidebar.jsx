@@ -1,4 +1,5 @@
 import Avatar from './Avatar.jsx';
+import BrandWordmark from './BrandWordmark.jsx';
 import { STATUSES } from '../preferences.js';
 
 const NAV = [
@@ -30,10 +31,7 @@ export default function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-head">
         <div className="brand-mark small">H</div>
-        <div>
-          <strong>Heph</strong>
-          <span className="muted block tiny">conectados, siempre</span>
-        </div>
+        <BrandWordmark compact />
       </div>
 
       <nav className="nav-list">

@@ -19,6 +19,7 @@ import Cine from './components/Cine.jsx';
 import StoryBar from './components/StoryBar.jsx';
 import StoryViewer from './components/StoryViewer.jsx';
 import ZodiacStoryViewer from './components/ZodiacStoryViewer.jsx';
+import BrandWordmark from './components/BrandWordmark.jsx';
 import Avatar from './components/Avatar.jsx';
 import UserProfile from './components/UserProfile.jsx';
 import Location from './components/Location.jsx';
@@ -1170,7 +1171,7 @@ export default function App() {
     return (
       <>
         {updateBanner}
-        <div className="loading-screen"><div className="brand-mark">H</div><p>Conectando con Heph…</p></div>
+        <div className="loading-screen"><BrandWordmark /><p>Conectando…</p></div>
       </>
     );
   }
@@ -1207,6 +1208,7 @@ export default function App() {
         )}
         {view === 'home' && (
           <div className="page home-page">
+            <div className="mobile-brand"><BrandWordmark /></div>
             <StoryBar
               groups={stories}
               me={me}

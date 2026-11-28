@@ -1,7 +1,7 @@
 {
-  "versionCode": 21,
-  "versionName": "1.20",
+  "versionCode": 22,
+  "versionName": "1.21",
   "force": true,
-  "notes": "OBLIGATORIA: Heph ya tiene el nombre y el icono nuevos. El horóscopo se toca y se lee completo con letra grande, sin auto-avance; seguí viendo las 12 fotos reales del día, me gusta, mensajes y tu signo en tu historia con mg.",
+  "notes": "OBLIGATORIA: la app muestra HEPH ·conectandos· con letra elegante y bien centrada. El zodiaco se toca y se lee completo sin auto-avance, con las 12 fotos reales del día y tu signo en tu historia con mg.",
   "apkUrl": "/Nexus.apk"
 }
